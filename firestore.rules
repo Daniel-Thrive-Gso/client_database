@@ -1,0 +1,373 @@
+rules_version = '2';
+
+// Three-role model (see admin_automation/client_database_plan.md section 10a):
+//   - admin  : daniel@thrivegso.com — full access including deletes and user management
+//   - staff  : any verified @thrivegso.com account — read/write client data, run reports,
+//              approve client submissions; no deletes, no role management
+//   - client : individual client login (custom claim role=='client', clientId set) —
+//              read own record only, submit pending updates that staff must approve
+//
+// Admin is currently identified by hardcoded email. Once a user-management UI exists
+// we will switch isAdmin() to check a custom claim (request.auth.token.role == 'admin'),
+// set via the Firebase Admin SDK. Same for client logins — claims will be set by a
+// staff-triggered Cloud Function at intake.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Signed in via either Google (staff: email + email_verified)
+    // or custom token (client: role=='client'). Custom tokens don't carry
+    // email_verified, so the staff-style email_verified check would deny
+    // every client-role read; allow the role=='client' branch through.
+    function isSignedIn() {
+      return request.auth != null
+        && (request.auth.token.email_verified == true
+            || request.auth.token.role == 'client');
+    }
+
+    // Any verified GSO staff account, including the admin.
+    function isStaff() {
+      return isSignedIn()
+        && request.auth.token.email.matches('.*@thrivegso[.]com');
+    }
+
+    // Admin role, set as a Firebase Auth custom claim by client_database/admin/set-claim.mjs.
+    // Falls back to the hardcoded email so a session that hasn't refreshed its token yet
+    // (after sign-out/sign-in) still works for daniel@thrivegso.com.
+    function isAdmin() {
+      return isSignedIn()
+        && (request.auth.token.role == 'admin'
+            || request.auth.token.email.matches('(?i)^daniel@thrivegso[.]com$'));
+    }
+
+    // Client viewing their own record. Requires claim role=='client' and a
+    // clientId claim that matches the document being accessed.
+    function isOwnClient(clientId) {
+      return isSignedIn()
+        && request.auth.token.role == 'client'
+        && request.auth.token.clientId == clientId;
+    }
+
+    // ----- Self-Evaluations (prototype slice — already in production) -----
+    match /selfEvaluations/{docId} {
+      allow read: if isStaff();
+      allow create: if isStaff()
+        && request.resource.data.clientName is string
+        && request.resource.data.reason is string
+        && request.resource.data.dateGiven is timestamp
+        && request.resource.data.givenBy is string;
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // ----- Master client records -----
+    match /clients/{clientId} {
+      allow read: if isStaff() || isOwnClient(clientId);
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+
+      // Sensitive single docs: sensitive/identity (full SSN, full ID numbers,
+      // placeOfBirth, veteran sub-fields) and sensitive/medical (insurance,
+      // healthcare history, mental-health context). Staff-readable because
+      // workflow legitimately needs full SSN and provider context for HIPAA
+      // forms, ODH 206 paperwork, ID replacement, SSDI, and provider
+      // coordination. Protection is at the UI layer: masked/hidden by
+      // default, click-to-reveal writes an accessLog 'view' entry. Clients
+      // cannot read their own sensitive subdocs from the app.
+      match /sensitive/{docId} {
+        allow read: if isStaff();
+        allow create, update: if isStaff();
+        allow delete: if isAdmin();
+      }
+
+      // ODH 206 authorization records — append-only per authorization.
+      // Each doc captures one signed authorization (disclosing party,
+      // receiving party, info shared, purpose, expiration, signatures) and
+      // optionally references uploaded source-document PDFs. Staff create
+      // at intake; admin-only update/delete (e.g., to mark expired/revoked).
+      // Plan section 12.1 originally described the path as
+      // clients/{clientId}/sensitive/odh206/{authId}, which is not a valid
+      // Firestore path; flattened to clients/{clientId}/odh206/{authId}.
+      match /odh206/{authId} {
+        allow read: if isStaff();
+        allow create: if isStaff();
+        allow update, delete: if isAdmin();
+      }
+
+      // Consents (photo/video, future one-shot consents). Staff record new
+      // consent state on intake or when a client signs an updated form.
+      // Append-only at the rules layer; new consent state = new doc.
+      // Admin-only update/delete in case a consent must be voided.
+      match /consents/{consentType} {
+        allow read: if isStaff();
+        allow create: if isStaff();
+        allow update, delete: if isAdmin();
+      }
+
+      // Client auth subdoc (PIN hash + lockout counter). Touched only by
+      // the clientAuth Cloud Function via the Admin SDK; the client and
+      // staff SDKs cannot read or write here. Plan section 14.1.
+      match /auth/{authDoc} {
+        allow read, write: if false;
+      }
+
+      // Scanned documents — state ID, SSC, birth cert, transcript, diploma,
+      // medical insurance card, library card. Each entry references one or
+      // two files in Cloud Storage (front + optional back). Replaces the
+      // physical-folder-of-photocopies workflow so a client can recover
+      // copies after losing personal documents. Clients can read their own
+      // (so they can pull copies on their phone); staff create + update;
+      // admin deletes. Audit log gets a 'view' entry on each open.
+      match /scannedDocs/{docId} {
+        allow read: if isStaff() || isOwnClient(clientId);
+        allow create, update: if isStaff();
+        allow delete: if isAdmin();
+      }
+
+      // PHI records — scans of medical / mental-health / substance-abuse
+      // records GSO received (on paper) from a healthcare provider under a
+      // signed ODH 206 authorization. Each record references the authId it
+      // came in under; the file lives in Cloud Storage at
+      // clients/{cid}/odh206/{authId}/{recId}.{ext} (≤50 MB, staff-only).
+      // Staff-only here too — unlike scannedDocs/photos (a client's own IDs),
+      // these are full provider records and aren't surfaced in the client
+      // app. Every open writes an accessLog 'view' entry. Admin-only delete.
+      match /phiRecords/{recId} {
+        allow read: if isStaff();
+        allow create, update: if isStaff();
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ----- Beds (one doc per physical bed; seeded once via admin/seed-beds.mjs) -----
+    // Schema: { dorm, bedId, occupiedBy: clientId|null, occupiedByName, occupiedSince,
+    //           assignedBy, updatedAt, updatedBy }. The 24 beds are Alpha A-1..A-5,
+    //           Bravo B-1..B-7, Charlie C-1..C-9, Veterans V-1..V-3.
+    // Mirror on clients/{cid}.bedAssignment for fast detail-page rendering.
+    // Assign/reassign/free is a Firestore transaction so two staff can't double-book.
+    match /beds/{bedId} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // ----- Medication catalog (pre-seeded ~136 entries from Medications.csv) -----
+    // Staff read it to populate the intake form's medication dropdown.
+    // Staff can also add ad-hoc medications they encounter at intake via
+    // the "Add new medication" modal in public/app.js. The bulk seed script
+    // (admin/seed-medication-catalog.mjs) uses the Admin SDK and bypasses
+    // these rules. Update/delete stay admin-only so staff can't accidentally
+    // overwrite an existing catalog entry from the app.
+    match /medicationCatalog/{medId} {
+      allow read: if isStaff();
+      allow create: if isStaff()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() < 200;
+      allow update, delete: if isAdmin();
+    }
+
+    // ----- Intake events -----
+    match /intakes/{intakeId} {
+      allow read: if isStaff()
+        || (isSignedIn()
+            && request.auth.token.role == 'client'
+            && resource.data.clientId == request.auth.token.clientId);
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // ----- Exit events -----
+    match /exits/{exitId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // ----- Daily logs (guest roster, check-in/out, shower, meal) -----
+    // Staff write everything. Clients can read their own check-in/out and
+    // shower entries; meal log is staff-only since it doesn't surface to clients.
+    match /dailyGuestRoster/{docId} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if isAdmin();
+    }
+    // Per-event check-in/out events. Clients self-submit when they leave
+    // and return; staff can backfill on a client's behalf when a client
+    // forgets. 3-week native Firestore TTL on `expiresAt` deletes events
+    // automatically; the exit transaction short-circuits cleanup by
+    // patching open events to `expiresAt: now`. Plan section 14.2.
+    match /checkInOuts/{eventId} {
+      allow read: if isStaff()
+        || (isSignedIn()
+            && request.auth.token.role == 'client'
+            && resource.data.clientId == request.auth.token.clientId);
+
+      // Client self-submitting their own event.
+      allow create: if isSignedIn()
+        && request.auth.token.role == 'client'
+        && request.resource.data.clientId == request.auth.token.clientId
+        && request.resource.data.submittedBy == request.auth.token.clientId
+        && request.resource.data.clientId is string
+        && request.resource.data.clientId.matches('GSO-[0-9]{5}')
+        && request.resource.data.clientName is string
+        && request.resource.data.direction in ['out', 'in']
+        && request.resource.data.eventTime is timestamp
+        && request.resource.data.submittedAt is timestamp
+        && request.resource.data.expiresAt is timestamp
+        && (request.resource.data.direction != 'out'
+            || (request.resource.data.reason in
+                  ['work', 'drAppt', 'counseling', 'shopping',
+                   'jobHunt', 'school', 'thriftStore', 'other']));
+
+      // Staff backfilling on a client's behalf.
+      allow create: if isStaff()
+        && request.resource.data.submittedBy == request.auth.token.email
+        && request.resource.data.clientId is string
+        && request.resource.data.clientId.matches('GSO-[0-9]{5}')
+        && request.resource.data.clientName is string
+        && request.resource.data.direction in ['out', 'in']
+        && request.resource.data.eventTime is timestamp
+        && request.resource.data.submittedAt is timestamp
+        && request.resource.data.expiresAt is timestamp
+        && (request.resource.data.direction != 'out'
+            || (request.resource.data.reason in
+                  ['work', 'drAppt', 'counseling', 'shopping',
+                   'jobHunt', 'school', 'thriftStore', 'other']));
+
+      // Staff-only updates: typo fixes and exit-cleanup expiresAt patch.
+      allow update: if isStaff();
+
+      // Deletion is handled by the Firestore TTL policy on expiresAt;
+      // app-level deletes are blocked.
+      allow delete: if false;
+    }
+    match /showerLog/{docId} {
+      allow read: if isStaff()
+        || (isSignedIn()
+            && request.auth.token.role == 'client'
+            && resource.data.clientId == request.auth.token.clientId);
+      allow create, update: if isStaff()
+        || (isSignedIn()
+            && request.auth.token.role == 'client'
+            && request.resource.data.clientId == request.auth.token.clientId);
+      allow delete: if isAdmin();
+    }
+    match /mealLog/{docId} {
+      allow read: if isStaff()
+        || (isSignedIn()
+            && request.auth.token.role == 'client'
+            && resource.data.clientId == request.auth.token.clientId);
+      // Client self-submit: staff can create on a client's behalf; clients
+      // can self-submit one-tap meal logs from the client app (§14.3).
+      allow create: if isStaff()
+        || (isSignedIn()
+            && request.auth.token.role == 'client'
+            && request.resource.data.clientId == request.auth.token.clientId
+            && request.resource.data.meal in ['breakfast', 'lunch', 'dinner']);
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // ----- Schedules -----
+    // Client weekly schedule: clients can read their own; staff write everything
+    // (client schedule submissions go through pendingClientSubmissions, not here).
+    match /clientWeeklySchedule/{docId} {
+      allow read: if isStaff()
+        || (isSignedIn()
+            && request.auth.token.role == 'client'
+            && resource.data.clientId == request.auth.token.clientId);
+      allow create, update: if isStaff();
+      allow delete: if isAdmin();
+    }
+    match /thriftStoreSchedule/{docId} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // ----- Medications and drug tests -----
+    match /medications/{docId} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if isAdmin();
+    }
+    match /drugTests/{docId} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // ----- Client status updates (documents gained, life milestones) -----
+    // One doc per logged update. Append-history; latest state is also mirrored
+    // to clients/{cid}.documents.* / .milestones.* for fast list/report reads.
+    // Staff create + read; admin can update/delete to correct mistakes.
+    match /clientStatusUpdates/{updateId} {
+      allow read: if isStaff();
+      allow create: if isStaff()
+        && request.resource.data.clientId is string
+        && request.resource.data.updateType is string
+        && request.resource.data.occurredOn is timestamp;
+      allow update, delete: if isAdmin();
+    }
+
+    // ----- Pending client submissions (staging area for client-submitted updates) -----
+    // Clients write here; the canonical client record is never touched directly
+    // by a client. Staff approve/reject in the dashboard inbox; an approval
+    // copies validated fields to the canonical record via backend logic.
+    match /pendingClientSubmissions/{subId} {
+      allow read: if isStaff()
+        || (isSignedIn()
+            && request.auth.token.role == 'client'
+            && resource.data.clientId == request.auth.token.clientId);
+      allow create: if isSignedIn()
+        && request.auth.token.role == 'client'
+        && request.resource.data.clientId == request.auth.token.clientId
+        && request.resource.data.submittedBy == request.auth.token.clientId
+        && request.resource.data.clientId is string
+        && request.resource.data.clientId.matches('GSO-[0-9]{5}')
+        && request.resource.data.status == 'pending'
+        && request.resource.data.submissionType in ['weeklySchedule', 'infoUpdate']
+        // infoUpdate carries a single status-update fact: updateType (one of
+        // STATUS_UPDATE_TYPE_LABELS keys, validated app-side), occurredOn
+        // (timestamp), and optional notes. Staff approval copies it into
+        // clientStatusUpdates and mirrors onto clients/{cid} dot-paths.
+        && (request.resource.data.submissionType != 'infoUpdate'
+            || (request.resource.data.updateType is string
+                && request.resource.data.occurredOn is timestamp));
+      // Once submitted, clients cannot edit. Staff update to set status to
+      // 'approved' or 'rejected' (with optional review note); the canonical
+      // record write happens in a separate transaction at approval time.
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // ----- Activity log (append-only history feeding reports) -----
+    // Backend-written ideally; for now staff can append. No edits, no deletes.
+    match /activityLog/{entryId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if false;
+    }
+
+    // ----- Access log (audit trail: who viewed/changed what client record when) -----
+    // Append-only. Only admin can read — this is the tamper-evident audit trail.
+    // Entries must self-attribute: userId on the entry must equal the writer's uid.
+    match /accessLog/{entryId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ----- User / role management -----
+    // Read by any staff (so the dashboard can show names of submitters etc.).
+    // Write only by admin.
+    match /users/{userId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+  }
+}

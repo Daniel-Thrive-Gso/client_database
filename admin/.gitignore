@@ -1,0 +1,6 @@
+node_modules/
+*.json.key
+*-service-account*.json
+*-adminsdk-*.json
+.env
+.env.*

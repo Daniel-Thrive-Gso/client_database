@@ -1,0 +1,31 @@
+{
+  "name": "client-database-admin",
+  "version": "0.1.0",
+  "description": "Admin scripts for the GSO client database. Not deployed to Firebase; run locally with a service account key.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "set-claim": "node set-claim.mjs",
+    "seed:medications": "node seed-medication-catalog.mjs",
+    "seed:medications:dry": "node seed-medication-catalog.mjs --dry-run",
+    "ttl:checkinouts": "node enable-checkinouts-ttl.mjs",
+    "ttl:extras": "node enable-extra-ttl.mjs",
+    "preview:odh206": "node preview-odh206.mjs",
+    "backfill:selfeval": "node backfill-selfeval-clientid.mjs",
+    "backfill:selfeval:apply": "node backfill-selfeval-clientid.mjs --apply",
+    "backups:enable": "node enable-backups.mjs",
+    "backups:list": "node enable-backups.mjs --list",
+    "pins:provision": "node provision-missing-pins.mjs",
+    "pins:provision:apply": "node provision-missing-pins.mjs --apply",
+    "cleanup:test-clients": "node cleanup-test-clients.mjs",
+    "cleanup:test-clients:apply": "node cleanup-test-clients.mjs --apply",
+    "cleanup:orphans": "node cleanup-orphan-data.mjs",
+    "cleanup:orphans:apply": "node cleanup-orphan-data.mjs --apply"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  },
+  "devDependencies": {
+    "pdf-lib": "^1.17.1"
+  }
+}

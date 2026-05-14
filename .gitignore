@@ -1,0 +1,21 @@
+# Firebase CLI artifacts
+.firebase/
+firebase-debug.log
+firestore-debug.log
+*.log
+
+# Service account keys must never be committed (they live in admin_automation/
+# already, but defense in depth)
+*-service-account*.json
+*-adminsdk-*.json
+*.json.key
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Node (admin/ has its own .gitignore for node_modules but this catches stray copies)
+node_modules/

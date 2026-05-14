@@ -1,0 +1,14 @@
+{
+  "name": "client-database-functions",
+  "description": "Cloud Functions for the GSO client database (clientAuth: PIN provisioning, sign-in, reset, disable/enable). Plan section 14.1.",
+  "private": true,
+  "type": "module",
+  "main": "index.mjs",
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.0.1"
+  }
+}

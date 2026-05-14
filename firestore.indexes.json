@@ -1,0 +1,85 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "selfEvaluations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "dateResolved", "order": "ASCENDING" },
+        { "fieldPath": "dateGiven", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "intakes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clientId", "order": "ASCENDING" },
+        { "fieldPath": "intakeDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "exits",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clientId", "order": "ASCENDING" },
+        { "fieldPath": "exitDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "clientStatusUpdates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clientId", "order": "ASCENDING" },
+        { "fieldPath": "occurredOn", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "checkInOuts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clientId", "order": "ASCENDING" },
+        { "fieldPath": "eventTime", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "checkInOuts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "direction", "order": "ASCENDING" },
+        { "fieldPath": "eventTime", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "mealLog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clientId", "order": "ASCENDING" },
+        { "fieldPath": "eventTime", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "showerLog",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clientId", "order": "ASCENDING" },
+        { "fieldPath": "eventTime", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pendingClientSubmissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "submittedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pendingClientSubmissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "clientId", "order": "ASCENDING" },
+        { "fieldPath": "submittedAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

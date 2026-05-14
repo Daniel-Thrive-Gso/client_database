@@ -1,0 +1,93 @@
+rules_version = '2';
+
+// Cloud Storage rules — mirror the three-role model from firestore.rules.
+// Path layout (see admin_automation/client_database_plan.md section 5e + 12):
+//   clients/{clientId}/photos/...        intake photos
+//   clients/{clientId}/signatures/...    canvas signature captures
+//   clients/{clientId}/odh206/{authId}/  PHI imports under signed releases
+//   clients/{clientId}/consents/{type}/  scanned consent forms
+//
+// Storage rules cannot access Firestore, so they re-implement the role
+// helpers using only the auth token. Custom claims (role, clientId) and
+// the @thrivegso.com email-domain fallback work the same way as Firestore.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Mirror firestore.rules: clients sign in via custom token (no
+    // email_verified claim), so allow the role=='client' branch through.
+    function isSignedIn() {
+      return request.auth != null
+        && (request.auth.token.email_verified == true
+            || request.auth.token.role == 'client');
+    }
+
+    function isStaff() {
+      return isSignedIn()
+        && request.auth.token.email.matches('.*@thrivegso[.]com');
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && (request.auth.token.role == 'admin'
+            || request.auth.token.email.matches('(?i)^daniel@thrivegso[.]com$'));
+    }
+
+    function isOwnClient(clientId) {
+      return isSignedIn()
+        && request.auth.token.role == 'client'
+        && request.auth.token.clientId == clientId;
+    }
+
+    // Intake photos. Clients may view their own (it is their picture).
+    match /clients/{clientId}/photos/{path=**} {
+      allow read: if isStaff() || isOwnClient(clientId);
+      allow write: if isStaff()
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isAdmin();
+    }
+
+    // Canvas-pad signature captures (PNG). Staff write at form submission.
+    match /clients/{clientId}/signatures/{path=**} {
+      allow read: if isStaff() || isOwnClient(clientId);
+      allow write: if isStaff()
+        && request.resource.size < 1 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isAdmin();
+    }
+
+    // ODH 206 source-document imports (medical records under signed
+    // release). Staff-readable; protected by UI gate + accessLog 'view'
+    // entry on each open. Larger size cap for full medical-record PDFs.
+    match /clients/{clientId}/odh206/{authId}/{path=**} {
+      allow read: if isStaff();
+      allow write: if isStaff()
+        && request.resource.size < 50 * 1024 * 1024;
+      allow delete: if isAdmin();
+    }
+
+    // Scanned consent forms (photo/video, future one-shot consents).
+    match /clients/{clientId}/consents/{consentType}/{path=**} {
+      allow read: if isStaff();
+      allow write: if isStaff()
+        && request.resource.size < 10 * 1024 * 1024;
+      allow delete: if isAdmin();
+    }
+
+    // Scanned identity / education / insurance / library documents. Front
+    // and (optionally) back images or PDFs per scanned doc, stored under
+    // /clients/{cid}/documents/{type}/{filename}. Doc types: stateID, ssc,
+    // birthCert, transcript, diploma, insurance, library. Clients can view
+    // their own copies from the client app (so they can email a copy when
+    // they need one). Staff upload; admin deletes. 10 MB cap per file
+    // covers a multi-page PDF transcript.
+    match /clients/{clientId}/documents/{docType}/{path=**} {
+      allow read: if isStaff() || isOwnClient(clientId);
+      allow write: if isStaff()
+        && request.resource.size < 10 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*')
+            || request.resource.contentType == 'application/pdf');
+      allow delete: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,1945 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GSO Staff — Self-Evaluation Tracker (Prototype)</title>
+  <link rel="stylesheet" href="styles.css?v=20260514-history-report-2" />
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="brand-mark"><span class="brand-gso">GSO</span><span class="brand-thrive">THRIVE</span></span>
+    </div>
+  </header>
+
+  <main>
+    <section id="signin-section">
+      <h2>Sign in</h2>
+
+      <div class="signin-staff">
+        <h3>Staff</h3>
+        <p>Use your <strong>@thrivegso.com</strong> Google account.</p>
+        <button id="signin-btn" type="button">Sign in with Google</button>
+        <p id="signin-error" class="error" hidden></p>
+      </div>
+
+      <hr class="signin-divider" />
+
+      <div class="signin-client">
+        <h3>Client</h3>
+        <p>Sign in with your <strong>Client ID</strong> and <strong>6-digit PIN</strong> from staff.</p>
+        <form id="client-signin-form">
+          <label>Client ID
+            <input id="client-signin-id" type="text" inputmode="text" autocomplete="username" placeholder="GSO-NNNNN" required />
+          </label>
+          <label>PIN
+            <input id="client-signin-pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="6" pattern="[0-9]{6}" placeholder="6 digits" required />
+          </label>
+          <button id="client-signin-btn" type="submit">Sign in</button>
+          <p id="client-signin-error" class="error" hidden></p>
+        </form>
+      </div>
+    </section>
+
+    <section id="app-section" hidden>
+      <aside class="sidebar">
+        <div class="sidebar-mark">
+          <span class="brand-gso">GSO</span>
+          <span class="brand-thrive">THRIVE</span>
+        </div>
+        <nav class="sidenav" role="tablist">
+          <div class="nav-section">
+            <div class="nav-label">Today</div>
+            <button class="tab-btn active" data-tab="self-eval" type="button" role="tab">Self-Evaluations</button>
+            <button class="tab-btn" data-tab="daily-roster" type="button" role="tab">Daily Roster</button>
+            <button class="tab-btn" data-tab="checkinout" type="button" role="tab">Sign In/Out</button>
+          </div>
+          <div class="nav-section">
+            <div class="nav-label">People &amp; Place</div>
+            <button class="tab-btn" data-tab="clients" type="button" role="tab">Clients</button>
+            <button class="tab-btn" data-tab="beds" type="button" role="tab">Beds</button>
+            <button class="tab-btn" data-tab="inbox" type="button" role="tab"><span>Inbox</span> <span id="inbox-pending-badge" class="badge" hidden>0</span></button>
+            <button class="tab-btn" data-tab="schedules" type="button" role="tab">Schedules</button>
+          </div>
+          <div class="nav-section">
+            <div class="nav-label">Operations</div>
+            <button class="tab-btn" data-tab="reports" type="button" role="tab">Reports</button>
+            <button class="tab-btn" data-tab="intake" type="button" role="tab">New Intake</button>
+            <button class="tab-btn" data-tab="exit" type="button" role="tab">Exit</button>
+            <button class="tab-btn" data-tab="audit" type="button" role="tab" id="audit-tab-btn" hidden>Audit log</button>
+          </div>
+        </nav>
+        <div class="sidebar-user" id="user-bar" hidden>
+          <div class="avatar" id="user-avatar"></div>
+          <div class="who">
+            <span id="user-email"></span>
+          </div>
+          <button id="signout-btn" type="button" class="ghost-sm">Sign out</button>
+        </div>
+      </aside>
+
+      <div class="main-col">
+
+      <div class="tab-content active" id="tab-self-eval">
+
+      <div class="tiles">
+        <div class="tile" id="tile-unresolved">
+          <div class="tile-label">Unresolved self-evaluations</div>
+          <div class="tile-value" id="tile-unresolved-value">—</div>
+        </div>
+        <div class="tile alert" id="tile-alerts" hidden>
+          <div class="tile-label">Clients with 3+ unresolved</div>
+          <div class="tile-value" id="tile-alerts-value">—</div>
+          <ul id="tile-alerts-list"></ul>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Submit a self-evaluation</h2>
+        <form id="submit-form">
+          <div class="picker-field">
+            <label class="picker-field-label">Client</label>
+            <div id="self-eval-client-picker" class="client-picker"></div>
+            <p class="note picker-field-note">Search by name, alias, or client ID. If the person isn't in the system yet, run a New Intake first.</p>
+          </div>
+          <label>Reason
+            <textarea name="reason" rows="3" required></textarea>
+          </label>
+          <label>Date given
+            <input name="dateGiven" type="date" required />
+          </label>
+          <label>Given by
+            <input name="givenBy" type="text" required autocomplete="off" />
+          </label>
+          <button type="submit">Submit</button>
+          <p id="submit-status" class="status" hidden></p>
+        </form>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Unresolved self-evaluations</h2>
+          <button id="seed-btn" type="button" class="ghost">Seed fake data</button>
+        </div>
+        <table id="report-table">
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Date given</th>
+              <th>Reason</th>
+              <th>Given by</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="report-body">
+            <tr class="empty"><td colspan="5">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      </div><!-- /tab-self-eval -->
+
+      <div class="tab-content" id="tab-clients">
+
+        <div id="clients-list-view">
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Clients</h2>
+              <span id="clients-count" class="muted"></span>
+            </div>
+            <input id="clients-search" type="search" placeholder="Search by name, alias, or client ID…" autocomplete="off" />
+            <table id="clients-table">
+              <thead>
+                <tr>
+                  <th>Client ID</th>
+                  <th>Name</th>
+                  <th>DOB</th>
+                  <th>Status</th>
+                  <th>Level</th>
+                  <th>Leadership</th>
+                  <th>Bed</th>
+                  <th>Last intake</th>
+                </tr>
+              </thead>
+              <tbody id="clients-body">
+                <tr class="empty"><td colspan="8">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="client-detail-view" hidden>
+          <div class="panel">
+            <div class="client-detail-toolbar">
+              <button id="client-detail-back" type="button" class="ghost">&larr; Back to clients</button>
+              <div class="client-detail-toolbar-right">
+                <button id="client-intake-report-print" type="button" class="ghost">Print intake report</button>
+                <button id="client-history-report-print" type="button" class="ghost">Print history report</button>
+              </div>
+            </div>
+
+            <div class="client-header">
+              <div class="client-header-photo">
+                <img id="client-detail-photo" alt="Client photo" hidden />
+                <button type="button" id="client-detail-photo-edit" class="ghost-sm" hidden>Update photo</button>
+              </div>
+              <div>
+                <h2 id="client-detail-name">&nbsp;</h2>
+                <p class="muted client-header-meta">
+                  <code id="client-detail-id"></code>
+                  <span id="client-detail-status-wrap" hidden> &middot; <span id="client-detail-status"></span></span>
+                  <span id="client-detail-created-wrap" hidden> &middot; Created <span id="client-detail-created"></span></span>
+                  <span id="client-detail-intake-count-wrap" hidden> &middot; <span id="client-detail-intake-count"></span> intake(s)</span>
+                </p>
+              </div>
+            </div>
+
+            <p id="client-detail-loading" class="note">Loading client record…</p>
+            <p id="client-detail-error" class="error" hidden></p>
+
+            <div id="client-detail-body" hidden>
+
+              <fieldset class="section">
+                <legend>Identity</legend>
+                <dl class="kv-grid" id="client-identity-master"></dl>
+                <div class="reveal-card">
+                  <div class="consent-control">
+                    <button id="client-reveal-identity" type="button" class="ghost ssn-reveal-btn">Reveal sensitive identity (SSN, IDs, place of birth)</button>
+                    <span id="client-reveal-identity-status" class="muted">Hidden by default. Each reveal is logged.</span>
+                  </div>
+                  <dl class="kv-grid" id="client-identity-sensitive" hidden></dl>
+                </div>
+              </fieldset>
+
+              <fieldset class="section">
+                <legend>Demographics</legend>
+                <dl class="kv-grid" id="client-demographics"></dl>
+              </fieldset>
+
+              <fieldset class="section">
+                <legend>Bed assignment</legend>
+                <div id="client-bed-assignment" class="bed-assignment-row">
+                  <p class="note">Loading…</p>
+                </div>
+              </fieldset>
+
+              <fieldset class="section">
+                <legend>GSO Program</legend>
+                <p class="note" style="margin-top: 0;">Level (Alpha → Bravo → Charlie → Delta), probation status, and current leadership role.</p>
+                <div id="client-program-summary" class="program-summary"></div>
+                <form id="client-program-form" class="program-form" autocomplete="off">
+                  <div class="row">
+                    <label>Level
+                      <select name="level" required>
+                        <option value="alpha">Alpha</option>
+                        <option value="bravo">Bravo</option>
+                        <option value="charlie">Charlie</option>
+                        <option value="delta">Delta</option>
+                      </select>
+                    </label>
+                    <label>Leadership role
+                      <select name="leadershipRole">
+                        <option value="">— None —</option>
+                        <option value="dormLeader">Dorm Leader</option>
+                        <option value="houseLeader">House Leader</option>
+                        <option value="assistantHouseLeader">Assistant House Leader</option>
+                        <option value="maintenance">Maintenance</option>
+                        <option value="laundry">Laundry</option>
+                        <option value="cookHelper">Cook Helper</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="row">
+                    <label>On probation until
+                      <input name="probationUntil" type="date" />
+                    </label>
+                    <label>Probation reason
+                      <input name="probationReason" type="text" placeholder="e.g. initial intake, incident on 2026-05-01" />
+                    </label>
+                  </div>
+                  <div class="program-actions">
+                    <button type="submit" id="program-save">Save program changes</button>
+                    <button type="button" id="program-end-probation" class="ghost">End probation now</button>
+                    <span id="program-save-status" class="status muted">No changes</span>
+                  </div>
+                </form>
+              </fieldset>
+
+              <fieldset class="section">
+                <legend>Client login</legend>
+                <p class="note" style="margin-top: 0;">Client signs in with their Client ID + 6-digit PIN to submit their own forms. Reset issues a new PIN immediately and invalidates the old one; the new PIN displays once.</p>
+                <div class="client-login-actions">
+                  <button type="button" id="client-reset-pin" class="ghost">Reset PIN</button>
+                  <span id="client-reset-pin-status" class="status muted"></span>
+                </div>
+                <div id="client-reset-pin-display" class="pin-reveal-wrap" hidden>
+                  <span class="muted">New PIN:</span>
+                  <span id="client-reset-pin-value" class="pin-display"></span>
+                  <button type="button" id="client-reset-pin-clear" class="ghost">Clear from screen</button>
+                </div>
+              </fieldset>
+
+              <fieldset class="section">
+                <legend>Check-in/out (last 3 weeks)</legend>
+                <p class="note" style="margin-top: 0;">Per-event sign-out / sign-in history. Auto-deletes 3 weeks after each event; cleared on exit.</p>
+                <div id="client-checkinout-summary" class="checkinout-summary"><p class="note">Loading…</p></div>
+                <div class="checkinout-quick-row">
+                  <button type="button" id="client-checkinout-out" class="ghost" disabled>Sign Out</button>
+                  <button type="button" id="client-checkinout-in" class="ghost" disabled>Sign In</button>
+                  <span id="client-checkinout-status" class="status muted"></span>
+                </div>
+                <div id="client-checkinout-history"><p class="note">Loading history…</p></div>
+              </fieldset>
+
+              <fieldset class="section">
+                <legend>Contact &amp; Emergency</legend>
+                <dl class="kv-grid" id="client-contact"></dl>
+                <p class="subsection-header">Emergency contacts</p>
+                <div id="client-emergency-contacts"></div>
+              </fieldset>
+
+              <fieldset class="section">
+                <legend>Health (sensitive/medical)</legend>
+                <div class="reveal-card">
+                  <div class="consent-control">
+                    <button id="client-reveal-medical" type="button" class="ghost ssn-reveal-btn">Reveal medical record</button>
+                    <span id="client-reveal-medical-status" class="muted">Hidden by default. Each reveal is logged.</span>
+                  </div>
+                  <dl class="kv-grid" id="client-medical" hidden></dl>
+                </div>
+              </fieldset>
+
+              <fieldset class="section">
+                <legend>Intake history</legend>
+                <div id="client-intakes"><p class="note">Loading…</p></div>
+              </fieldset>
+
+              <fieldset class="section">
+                <legend>Exit history</legend>
+                <div id="client-exits"><p class="note">Loading…</p></div>
+              </fieldset>
+
+              <fieldset class="section" id="client-drug-tests-section">
+                <legend>Drug tests</legend>
+                <p class="note" style="margin-top: 0;">
+                  Log a random drug test result. The intake-time test stays on the intake record; every test here is added to the history and never overwrites prior results. Use this for ongoing random testing.
+                </p>
+                <div class="section-actions">
+                  <button id="drug-test-add-btn" type="button" class="ghost">Record drug test</button>
+                </div>
+                <div id="client-drug-tests"><p class="note">Loading…</p></div>
+              </fieldset>
+
+              <fieldset class="section">
+                <legend>Status updates</legend>
+                <p class="note" style="margin-top: 0;">
+                  Log when a client gains a document (SSN card, birth certificate, diploma, etc.) or hits a life milestone (job, housing, bank account, sobriety). Each update is permanent history; the latest state also mirrors to the client record so it shows up in reports.
+                </p>
+                <form id="status-update-form" class="status-update-form">
+                  <div class="status-update-row">
+                    <label>What changed
+                      <select name="updateType" required>
+                        <option value="">— Select —</option>
+                        <optgroup label="Documents">
+                          <option value="socialSecurityCard">Social Security card</option>
+                          <option value="birthCertificate">Birth certificate</option>
+                          <option value="stateId">State ID / driver's license</option>
+                          <option value="hsDiploma">HS diploma / GED</option>
+                          <option value="hsTranscript">HS transcript</option>
+                          <option value="collegeDiploma">College diploma / certificate</option>
+                          <option value="collegeTranscript">College transcript</option>
+                          <option value="medicalInsurance">Medical insurance</option>
+                          <option value="vaCard">VA card</option>
+                          <option value="dd214">DD-214</option>
+                          <option value="voterRegistration">Voter registration</option>
+                        </optgroup>
+                        <optgroup label="Healthcare">
+                          <option value="connectedDoctor">Connected with a doctor</option>
+                          <option value="connectedCounselor">Connected with a counselor</option>
+                        </optgroup>
+                        <optgroup label="Government benefits">
+                          <option value="foodStamps">Food stamps (SNAP)</option>
+                          <option value="ssi">SSI</option>
+                          <option value="ssdi">SSDI</option>
+                          <option value="rsdi">RSDI / Social Security retirement</option>
+                          <option value="vaDisability">VA disability</option>
+                          <option value="vaRetirement">VA retirement</option>
+                          <option value="retirement">Retirement (other)</option>
+                          <option value="workersComp">Workers' compensation</option>
+                          <option value="tribalBenefits">Tribal benefits</option>
+                          <option value="otherBenefit">Other benefit</option>
+                        </optgroup>
+                        <optgroup label="Life milestones">
+                          <option value="employment">Got a job</option>
+                          <option value="housing">Got housing</option>
+                          <option value="bankAccount">Opened a bank account</option>
+                          <option value="phone">Got a phone</option>
+                          <option value="startedSchool">Started college / trade school</option>
+                          <option value="sobrietyMilestone">Sobriety milestone</option>
+                          <option value="programCompletion">Completed a program</option>
+                        </optgroup>
+                        <optgroup label="Reviews">
+                          <option value="panelResults">Panel Results (monthly review)</option>
+                        </optgroup>
+                      </select>
+                    </label>
+                    <label>Date
+                      <input type="date" name="occurredOn" required />
+                    </label>
+                  </div>
+                  <label>Notes <span class="muted">(optional — short note for documents/benefits/milestones; full paragraph(s) for Panel Results)</span>
+                    <textarea name="notes" rows="3" placeholder="e.g. Picked up SSN replacement at SSA office; or — Started at Thrive Coffee 2026-05-08; or — Panel review notes describing progress and next steps."></textarea>
+                  </label>
+                  <div class="status-update-actions">
+                    <button type="submit" id="status-update-save">Save update</button>
+                    <span id="status-update-status" class="status" hidden></span>
+                  </div>
+                </form>
+                <div id="client-status-updates"><p class="note">Loading history…</p></div>
+              </fieldset>
+
+              <fieldset class="section">
+                <legend>ODH 206 authorizations</legend>
+                <div class="section-actions">
+                  <button id="odh206-gen-btn" type="button" class="ghost">Generate ODH 206 PDF</button>
+                  <span class="note">Pre-fills patient identifiers from the client record. Opens the filled form in a new tab — print from the browser (Ctrl+P or the print button in the PDF viewer), have the client sign by hand, then deliver to the disclosing party.</span>
+                </div>
+                <div id="client-odh206"><p class="note">Loading…</p></div>
+              </fieldset>
+
+              <fieldset class="section">
+                <legend>Printable forms</legend>
+                <p class="note">One-click PDF auto-fill from the client record. Each opens in a new tab so staff can print or save from the browser's PDF viewer.</p>
+                <div class="section-actions">
+                  <button id="photo-consent-gen-btn" type="button" class="ghost">Generate Photo / Video Release</button>
+                  <button id="sigevents-gen-btn" type="button" class="ghost">Generate Significant Events tracker</button>
+                </div>
+              </fieldset>
+
+              <fieldset class="section" id="client-phi-records-section">
+                <legend>PHI records (received under ODH 206)</legend>
+                <p class="note">Scans of medical, mental-health, or
+                  substance-abuse records GSO received <em>on paper</em> from a
+                  provider under a signed ODH 206 authorization. Keep the paper
+                  original in the locked cabinet — uploading here puts a copy in
+                  the access-controlled system instead of a physical-only file.
+                  Staff-only; not shown in the client app. Every open is logged.
+                  To upload, the client needs at least one ODH 206 authorization
+                  on file (record one above first).</p>
+                <div class="section-actions">
+                  <button id="phi-record-upload-btn" type="button" class="ghost">Upload PHI record</button>
+                </div>
+                <div id="client-phi-records"><p class="note">Loading…</p></div>
+              </fieldset>
+
+              <fieldset class="section">
+                <legend>Consents</legend>
+                <div id="client-consents"><p class="note">Loading…</p></div>
+              </fieldset>
+
+              <fieldset class="section" id="client-scanned-docs-section">
+                <legend>Scanned documents</legend>
+                <p class="note">Upload front + (optional) back copies of the
+                  client's identity, education, insurance, and library cards.
+                  Replaces the paper-folder workflow so a client can recover
+                  copies after losing personal documents.</p>
+                <div class="section-actions">
+                  <button id="scanned-doc-upload-btn" type="button" class="ghost">Upload document</button>
+                </div>
+                <div id="client-scanned-docs"><p class="note">Loading…</p></div>
+              </fieldset>
+
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /tab-clients -->
+
+      <div class="tab-content" id="tab-daily-roster">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Daily Roster</h2>
+            <div class="roster-date-controls">
+              <label>Date <input type="date" id="roster-date" /></label>
+              <button id="roster-today-btn" type="button" class="ghost">Today</button>
+            </div>
+          </div>
+
+          <p class="note">One doc per day at <code>dailyGuestRoster/{YYYY-MM-DD}</code>. Today defaults to all active clients; new intakes after a save will appear unchecked next time the roster is loaded.</p>
+
+          <div class="roster-stats" id="roster-stats">
+            <span class="stat"><strong id="stat-present">—</strong> present</span>
+            <span class="stat"><strong id="stat-breakfast">—</strong> breakfast</span>
+            <span class="stat"><strong id="stat-lunch">—</strong> lunch</span>
+            <span class="stat"><strong id="stat-dinner">—</strong> dinner</span>
+            <span class="stat"><strong id="stat-shower">—</strong> shower</span>
+            <span class="stat alert" id="stat-not-signed-in-wrap" hidden><strong id="stat-not-signed-in">—</strong> not signed in by 8pm</span>
+          </div>
+
+          <p id="roster-status" class="note">Loading…</p>
+
+          <table id="roster-table">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Present</th>
+                <th>Breakfast</th>
+                <th>Lunch</th>
+                <th>Dinner</th>
+                <th>Shower</th>
+                <th>Signed in by 8pm</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody id="roster-body">
+              <tr class="empty"><td colspan="8">Loading…</td></tr>
+            </tbody>
+          </table>
+
+          <div class="roster-actions">
+            <button type="button" id="roster-save">Save roster</button>
+            <span id="roster-save-status" class="muted">No changes</span>
+          </div>
+        </div>
+      </div><!-- /tab-daily-roster -->
+
+      <div class="tab-content" id="tab-checkinout">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Sign In/Out</h2>
+            <span id="checkinout-currently-out-count" class="muted">— currently out</span>
+          </div>
+          <p class="note">Per-event activity log at <code>checkInOuts/{eventId}</code>. Clients submit themselves once the client app ships; staff can backfill below when a client forgets. Logs auto-delete 3 weeks after they're written, and clear on exit.</p>
+
+          <div id="currently-out-card" class="currently-out-card">
+            <h3>Currently signed out</h3>
+            <div id="currently-out-list"><p class="note">Loading…</p></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3 style="margin-top:0">Quick log (staff backfill)</h3>
+          <p class="note">Pick a client and record a sign-out or sign-in on their behalf. Use this when a client forgot to log it themselves.</p>
+          <div id="checkinout-picker" class="client-picker"></div>
+          <div id="checkinout-quick-actions" class="checkinout-quick-actions" hidden>
+            <p id="checkinout-quick-state" class="note"></p>
+            <div class="checkinout-quick-buttons">
+              <button type="button" id="checkinout-quick-out">Sign Out</button>
+              <button type="button" id="checkinout-quick-in">Sign In</button>
+            </div>
+            <span id="checkinout-quick-status" class="status muted"></span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3 style="margin-top:0">Recent activity (last 24 hours)</h3>
+          <div id="recent-activity-list"><p class="note">Loading…</p></div>
+        </div>
+
+      </div><!-- /tab-checkinout -->
+
+      <div class="tab-content" id="tab-inbox">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Inbox — pending client submissions</h2>
+            <div class="inbox-controls">
+              <label><input type="radio" name="inbox-filter" value="pending" checked /> Pending</label>
+              <label><input type="radio" name="inbox-filter" value="all" /> All recent</label>
+            </div>
+          </div>
+          <p class="note">Clients submit weekly schedules from their app; staff approve to copy them into the canonical Schedules tab, or reject with a note for the client to revise.</p>
+          <p id="inbox-status" class="note">Loading…</p>
+          <div id="inbox-list"></div>
+        </div>
+      </div><!-- /tab-inbox -->
+
+      <div class="tab-content" id="tab-beds">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Beds</h2>
+            <span id="beds-occupancy" class="muted">—</span>
+          </div>
+          <p class="note">Click an empty bed to assign a client; click an occupied bed to reassign or unassign. Bed assignments mirror to the client record and clear automatically when a client is exited.</p>
+          <p id="beds-status" class="note">Loading…</p>
+          <div id="beds-map"></div>
+        </div>
+      </div><!-- /tab-beds -->
+
+      <div class="tab-content" id="tab-schedules">
+        <div class="panel">
+          <div class="panel-header">
+            <h2>Schedules</h2>
+            <div class="schedule-week-controls">
+              <button id="schedule-prev-week" type="button" class="ghost">&larr; Prev</button>
+              <label>Week of <input type="date" id="schedule-week" /></label>
+              <button id="schedule-next-week" type="button" class="ghost">Next &rarr;</button>
+              <button id="schedule-this-week" type="button" class="ghost">This week</button>
+            </div>
+          </div>
+
+          <p class="note">Weekly schedules per client at <code>clientWeeklySchedule/{clientId}-{weekStart}</code>; thrift-store master at <code>thriftStoreSchedule/{weekStart}</code>. Conflicts (a thrift shift overlapping a client's other commitment, or two events on top of each other) are flagged below in real time.</p>
+
+          <fieldset class="section">
+            <legend>Client weekly schedule</legend>
+            <p class="note" style="margin-top: 0;">Search and pick a client; their week opens for editing.</p>
+            <div id="client-schedule-picker" class="client-picker"></div>
+            <div id="client-schedule-editor" hidden style="margin-top: 0.75rem;">
+              <table id="client-schedule-table" class="schedule-table">
+                <thead>
+                  <tr>
+                    <th>Day</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Type</th>
+                    <th>Title</th>
+                    <th>Location</th>
+                    <th>Notes</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="client-schedule-body"></tbody>
+              </table>
+              <div class="schedule-actions">
+                <button type="button" id="client-schedule-add" class="ghost">+ Add event</button>
+                <button type="button" id="client-schedule-save">Save client schedule</button>
+                <span id="client-schedule-status" class="muted">No changes</span>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="section">
+            <legend>Thrift store schedule</legend>
+            <p class="note" style="margin-top: 0;">All shifts for the selected week. Each row references one client.</p>
+            <table id="thrift-schedule-table" class="schedule-table">
+              <thead>
+                <tr>
+                  <th>Day</th>
+                  <th>Start</th>
+                  <th>End</th>
+                  <th>Client</th>
+                  <th>Role</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="thrift-schedule-body"></tbody>
+            </table>
+            <div class="schedule-actions">
+              <button type="button" id="thrift-schedule-add" class="ghost">+ Add shift</button>
+              <button type="button" id="thrift-schedule-save">Save thrift schedule</button>
+              <button type="button" id="thrift-schedule-print" class="ghost">Print schedule</button>
+              <span id="thrift-schedule-status" class="muted">No changes</span>
+            </div>
+          </fieldset>
+
+          <fieldset class="section conflicts-section">
+            <legend>Conflicts</legend>
+            <div id="schedule-conflicts"><p class="note">Loading…</p></div>
+          </fieldset>
+
+          <fieldset class="section">
+            <legend>Consolidated view</legend>
+            <div id="schedule-consolidated"><p class="note">Loading…</p></div>
+          </fieldset>
+        </div>
+      </div><!-- /tab-schedules -->
+
+      <div class="tab-content" id="tab-reports">
+        <div class="panel">
+          <div class="panel-header no-print">
+            <h2>Reports</h2>
+            <div class="report-controls">
+              <div class="report-mode-toggle" role="tablist">
+                <button id="report-mode-daily" type="button" class="mode-btn" role="tab">Daily</button>
+                <button id="report-mode-weekly" type="button" class="mode-btn active" role="tab">Weekly</button>
+                <button id="report-mode-monthly" type="button" class="mode-btn" role="tab">Monthly</button>
+                <button id="report-mode-yearly" type="button" class="mode-btn" role="tab">Yearly</button>
+                <button id="report-mode-client" type="button" class="mode-btn" role="tab">Per-client</button>
+              </div>
+              <div id="report-controls-daily" class="report-mode-controls" hidden>
+                <button id="report-prev-day" type="button" class="ghost">&larr; Prev</button>
+                <label>Date <input type="date" id="report-day" /></label>
+                <button id="report-next-day" type="button" class="ghost">Next &rarr;</button>
+                <button id="report-today" type="button" class="ghost">Today</button>
+              </div>
+              <div id="report-controls-weekly" class="report-mode-controls">
+                <button id="report-prev-week" type="button" class="ghost">&larr; Prev</button>
+                <label>Week of <input type="date" id="report-week" /></label>
+                <button id="report-next-week" type="button" class="ghost">Next &rarr;</button>
+                <button id="report-this-week" type="button" class="ghost">This week</button>
+              </div>
+              <div id="report-controls-monthly" class="report-mode-controls" hidden>
+                <button id="report-prev-month" type="button" class="ghost">&larr; Prev</button>
+                <label>Month <input type="month" id="report-month" /></label>
+                <button id="report-next-month" type="button" class="ghost">Next &rarr;</button>
+                <button id="report-this-month" type="button" class="ghost">This month</button>
+              </div>
+              <div id="report-controls-yearly" class="report-mode-controls" hidden>
+                <button id="report-prev-year" type="button" class="ghost">&larr; Prev</button>
+                <label>Year <select id="report-year"></select></label>
+                <button id="report-next-year" type="button" class="ghost">Next &rarr;</button>
+                <button id="report-this-year" type="button" class="ghost">This year</button>
+              </div>
+              <div id="report-controls-client" class="report-mode-controls" hidden>
+                <div id="report-client-picker" class="client-picker" style="min-width:18rem;"></div>
+              </div>
+              <button id="report-print" type="button">Print</button>
+            </div>
+          </div>
+
+          <div id="report-content">
+            <h3 id="report-title">Weekly Report</h3>
+            <p id="report-loading" class="note">Loading…</p>
+
+            <div id="weekly-report-body" hidden>
+
+              <fieldset class="section report-section">
+                <legend>Activity this period</legend>
+                <dl class="kv-grid" id="report-activity"></dl>
+              </fieldset>
+
+              <fieldset class="section report-section" id="report-daily-section">
+                <legend>Daily totals</legend>
+                <dl class="kv-grid" id="report-daily"></dl>
+                <p id="report-daily-flags" class="note"></p>
+              </fieldset>
+
+              <fieldset class="section report-section">
+                <legend>Documents gained this period</legend>
+                <p class="note" style="margin-top: 0;">Counts of clients who gained each document during the period (from status updates and intakes). Click a row to expand demographic breakdown.</p>
+                <div id="report-documents"></div>
+              </fieldset>
+
+              <fieldset class="section report-section">
+                <legend>Government benefits gained this period</legend>
+                <p class="note" style="margin-top: 0;">Counts of clients who newly began receiving each benefit during the period. Click a row to expand demographic breakdown.</p>
+                <div id="report-benefits"></div>
+              </fieldset>
+
+              <fieldset class="section report-section">
+                <legend>Active clients (current snapshot)</legend>
+                <p class="note" style="margin-top: 0;">Demographics, current document holdings, and current benefit receipt for all <code>status: "active"</code> clients right now — not a point-in-time snapshot of the period.</p>
+                <dl class="kv-grid" id="report-active"></dl>
+                <p class="subsection-header">Documents currently on file</p>
+                <dl class="kv-grid" id="report-active-documents"></dl>
+                <p class="subsection-header">Benefits currently received</p>
+                <dl class="kv-grid" id="report-active-benefits"></dl>
+              </fieldset>
+
+              <fieldset class="section report-section">
+                <legend>Outstanding self-evaluations</legend>
+                <div id="report-self-evals"></div>
+              </fieldset>
+
+            </div>
+
+            <div id="client-report-body" hidden></div>
+          </div>
+        </div>
+      </div><!-- /tab-reports -->
+
+      <div class="tab-content" id="tab-intake">
+        <div class="panel">
+          <h2>New Intake</h2>
+          <p class="note">Sections 1–4. Saves <code>clients/{id}</code>, <code>clients/{id}/sensitive/identity</code>, and a new <code>intakes/{intakeId}</code> snapshot — all in one Firestore transaction. Sections 5–8 (health, history, substances, intake artifacts) ship in upcoming slices.</p>
+
+          <form id="intake-form" autocomplete="off">
+
+            <fieldset class="section reentry-section">
+              <legend>Re-entry (optional)</legend>
+              <p class="note">If this client is returning to GSO, search for them here. The form will pre-fill from their existing record, and the save will append a new intake to the same client ID. Leave blank for a brand-new client.</p>
+              <div id="reentry-client-picker" class="client-picker"></div>
+              <div id="reentry-banner" class="reentry-banner" hidden></div>
+              <p id="reentry-prefill-status" class="note" hidden></p>
+            </fieldset>
+
+            <fieldset class="section">
+              <legend>1. Identity</legend>
+
+              <p class="subsection-header">Intake date</p>
+              <div class="row">
+                <label>Intake date
+                  <input name="intakeDate" type="date" required />
+                </label>
+                <p class="note" style="margin: 0; align-self: flex-end;">Defaults to today. Change this when backfilling a current or past client so their record carries the actual intake date.</p>
+              </div>
+
+              <p class="subsection-header">Photo</p>
+              <div class="photo-capture">
+                <div id="photo-controls">
+                  <button id="photo-start-btn" type="button" class="ghost">Start camera</button>
+                  <label class="ghost-label">
+                    or upload from device
+                    <input id="photo-file" type="file" accept="image/*" capture="user" />
+                  </label>
+                </div>
+                <div id="photo-video-section" hidden>
+                  <video id="photo-video" autoplay playsinline muted></video>
+                  <div class="photo-video-controls">
+                    <button id="photo-capture-btn" type="button">Take photo</button>
+                    <button id="photo-cancel-btn" type="button" class="ghost">Cancel</button>
+                  </div>
+                </div>
+                <div id="photo-preview-section" hidden>
+                  <img id="photo-preview" alt="Captured intake photo" />
+                  <button id="photo-retake-btn" type="button" class="ghost">Retake / replace</button>
+                </div>
+                <p id="photo-status" class="note"></p>
+              </div>
+
+              <p class="subsection-header">Name</p>
+              <div class="row">
+                <label>First name <input name="firstName" type="text" required /></label>
+                <label>Middle name <input name="middleName" type="text" /></label>
+                <label>Last name <input name="lastName" type="text" required /></label>
+                <label>Preferred / alias <input name="alias" type="text" /></label>
+              </div>
+
+              <p class="subsection-header">Birth & status</p>
+              <div class="row">
+                <label>Date of birth <input name="dob" type="date" required /></label>
+                <label>Place of birth (only used for birth-cert replacement)
+                  <input name="placeOfBirth" type="text" placeholder="City, State" />
+                </label>
+                <label>Marital status
+                  <select name="maritalStatus" required>
+                    <option value="">—</option>
+                    <option value="single">Single</option>
+                    <option value="married">Married</option>
+                    <option value="divorced">Divorced</option>
+                    <option value="separated">Separated</option>
+                    <option value="widowed">Widowed</option>
+                  </select>
+                </label>
+              </div>
+
+              <p class="subsection-header">Identifiers</p>
+              <div class="row">
+                <label>SSN
+                  <input name="ssn" type="text" placeholder="XXX-XX-XXXX" inputmode="numeric" required />
+                </label>
+                <label>Driver's license state
+                  <input name="dlState" type="text" maxlength="2" placeholder="OK" />
+                </label>
+                <label>Driver's license number <input name="dlNumber" type="text" /></label>
+                <label>State ID state
+                  <input name="stateIdState" type="text" maxlength="2" />
+                </label>
+                <label>State ID number <input name="stateIdNumber" type="text" /></label>
+              </div>
+              <div class="checkboxes">
+                <label><input type="checkbox" name="hasBirthCertOnFile" /> Birth certificate on file</label>
+                <label><input type="checkbox" name="hasSSCOnFile" /> Social Security card on file</label>
+                <label><input type="checkbox" name="hasDLOnFile" /> DL / State ID on file</label>
+              </div>
+            </fieldset>
+
+            <fieldset class="section">
+              <legend>2. Demographics</legend>
+
+              <p class="subsection-header">Race / Ethnicity (select all that apply)</p>
+              <div class="checkboxes">
+                <label><input type="checkbox" name="raceEthnicity" value="americanIndian" /> American Indian or Alaska Native</label>
+                <label><input type="checkbox" name="raceEthnicity" value="asian" /> Asian</label>
+                <label><input type="checkbox" name="raceEthnicity" value="black" /> Black or African American</label>
+                <label><input type="checkbox" name="raceEthnicity" value="pacificIslander" /> Native Hawaiian or Other Pacific Islander</label>
+                <label><input type="checkbox" name="raceEthnicity" value="white" /> White</label>
+                <label><input type="checkbox" name="raceEthnicity" value="other" /> Other</label>
+              </div>
+
+              <div class="conditional" id="conditional-amindian" hidden>
+                <p class="subsection-header">Tribal affiliation</p>
+                <div class="row">
+                  <label>Tribe
+                    <select name="tribe">
+                      <option value="">—</option>
+                      <option>Apache</option>
+                      <option>Caddo</option>
+                      <option>Cherokee</option>
+                      <option>Cheyenne</option>
+                      <option>Chickasaw</option>
+                      <option>Choctaw</option>
+                      <option>Comanche</option>
+                      <option>Creek</option>
+                      <option>Delaware</option>
+                      <option>Iowa</option>
+                      <option>Kaw</option>
+                      <option>Kickapoo</option>
+                      <option>Kiowa</option>
+                      <option>Modoc</option>
+                      <option>Osage</option>
+                      <option>Ottawa</option>
+                      <option>Pawnee</option>
+                      <option>Ponca</option>
+                      <option>Potawatomi</option>
+                      <option>Sac & Fox</option>
+                      <option>Seminole</option>
+                      <option>Shawnee</option>
+                      <option>Yuchi</option>
+                      <option>Blackfoot</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="checkboxes">
+                  <label><input type="checkbox" name="cdibCard" /> CDIB card on file</label>
+                </div>
+              </div>
+
+              <p class="subsection-header">Other</p>
+              <div class="row">
+                <label>Hispanic / Latino
+                  <select name="hispanicLatino">
+                    <option value="">—</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                    <option value="na">N/A</option>
+                  </select>
+                </label>
+                <label>Veteran
+                  <select name="veteran">
+                    <option value="">—</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="conditional" id="conditional-veteran" hidden>
+                <p class="subsection-header">Military service</p>
+                <div class="row">
+                  <label>Branch
+                    <select name="militaryBranch">
+                      <option value="">—</option>
+                      <option>Army</option>
+                      <option>Navy</option>
+                      <option>Air Force</option>
+                      <option>Marines</option>
+                      <option>Space Force</option>
+                      <option>Coast Guard</option>
+                    </select>
+                  </label>
+                  <label>Years served
+                    <input name="yearsServed" type="text" placeholder="e.g. 2003–2007" />
+                  </label>
+                </div>
+                <div class="checkboxes">
+                  <label><input type="checkbox" name="vaCardOnFile" /> VA card on file</label>
+                  <label><input type="checkbox" name="dd214OnFile" /> DD214 on file</label>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="section">
+              <legend>3. Contact & Emergency</legend>
+
+              <p class="subsection-header">Contact</p>
+              <div class="row">
+                <label>Phone <input name="phone" type="tel" placeholder="(555) 555-5555" /></label>
+                <label>Email <input name="email" type="email" /></label>
+              </div>
+
+              <p class="subsection-header">Emergency contact 1</p>
+              <div class="row">
+                <label>Name <input name="ec1Name" type="text" /></label>
+                <label>Relationship <input name="ec1Relationship" type="text" placeholder="Mother, friend, …" /></label>
+                <label>Phone <input name="ec1Phone" type="tel" /></label>
+              </div>
+
+              <button id="add-emergency-contact-btn" type="button" class="ghost" style="margin-top: 0.75rem;">+ Add another emergency contact</button>
+
+              <div class="conditional" id="conditional-ec2" hidden>
+                <p class="subsection-header">
+                  Emergency contact 2
+                  <button id="remove-emergency-contact-btn" type="button" class="ghost ssn-reveal-btn" style="margin-left: 0.5rem;">Remove</button>
+                </p>
+                <div class="row">
+                  <label>Name <input name="ec2Name" type="text" /></label>
+                  <label>Relationship <input name="ec2Relationship" type="text" /></label>
+                  <label>Phone <input name="ec2Phone" type="tel" /></label>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="section">
+              <legend>4. Education</legend>
+
+              <div class="row">
+                <label>HS / GED graduate
+                  <select name="hsGradStatus">
+                    <option value="">—</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                    <option value="na">N/A</option>
+                  </select>
+                </label>
+                <label>College or trade school
+                  <select name="collegeStatus">
+                    <option value="">—</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="conditional" id="conditional-hs-grad" hidden>
+                <p class="subsection-header">HS / GED details</p>
+                <div class="row">
+                  <label>Year completed <input name="hsYear" type="number" min="1900" max="2100" /></label>
+                  <label>Graduation date (if known)
+                    <input name="hsGraduationDate" type="text" placeholder="May 2010" />
+                  </label>
+                  <label>School / location
+                    <input name="hsLocation" type="text" placeholder="School name, City, State" />
+                  </label>
+                </div>
+                <div class="checkboxes">
+                  <label><input type="checkbox" name="hsDiplomaOnFile" /> Diploma / GED on file</label>
+                  <label><input type="checkbox" name="hsTranscriptOnFile" /> Transcript on file</label>
+                </div>
+              </div>
+
+              <div class="conditional" id="conditional-college" hidden>
+                <p class="subsection-header">College / trade details</p>
+                <div class="row">
+                  <label>School name <input name="collegeSchool" type="text" /></label>
+                  <label>Years attended <input name="collegeYears" type="text" placeholder="2018–2020" /></label>
+                </div>
+                <div class="checkboxes">
+                  <label><input type="checkbox" name="collegeDiplomaOnFile" /> Diploma / certificate on file</label>
+                  <label><input type="checkbox" name="collegeTranscriptOnFile" /> Transcript on file</label>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="section">
+              <legend>5. Health</legend>
+              <p class="note" style="margin: 0 0 0.6rem;">Stored in <code>sensitive/medical</code> — staff-readable, hidden by default in client views, reveals are audit-logged. Drives provider coordination and SSDI paperwork.</p>
+
+              <p class="subsection-header">Special needs / accommodations</p>
+              <label style="display: block;">
+                <textarea name="specialNeeds" rows="2" placeholder="Mobility, dietary, sensory, communication, etc."></textarea>
+              </label>
+
+              <p class="subsection-header">Insurance</p>
+              <div class="row">
+                <label>Has health insurance
+                  <select name="hasInsurance">
+                    <option value="">—</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                    <option value="unknown">Unknown</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="conditional" id="conditional-insurance" hidden>
+                <div class="row">
+                  <label>Medicaid number <input name="medicaidNumber" type="text" /></label>
+                  <label>Medicare number <input name="medicareNumber" type="text" /></label>
+                  <label>Private insurance carrier + policy <input name="privateNumber" type="text" placeholder="BCBS #ABC123" /></label>
+                </div>
+              </div>
+
+              <p class="subsection-header">Healthcare history</p>
+              <div class="row">
+                <label>Where previously treated <input name="whereTreated" type="text" placeholder="Hospital / clinic name(s)" /></label>
+                <label>Year of diagnosis <input name="yearOfDiagnosis" type="text" placeholder="e.g. 2018, multiple" /></label>
+                <label>Primary physician <input name="primaryPhysician" type="text" /></label>
+                <label>Counselor / therapist <input name="counselor" type="text" /></label>
+                <label>Pharmacy <input name="pharmacy" type="text" /></label>
+              </div>
+            </fieldset>
+
+            <fieldset class="section">
+              <legend>6. History & Income</legend>
+
+              <p class="subsection-header">Prior contact with GSO</p>
+              <div class="row">
+                <label>Previously a guest at GSO
+                  <select name="previousGuest">
+                    <option value="">—</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="conditional" id="conditional-previous-guest" hidden>
+                <div class="row">
+                  <label>Approximate date of prior intake <input name="previousIntakeDate" type="text" placeholder="e.g. Spring 2023" /></label>
+                </div>
+              </div>
+
+              <p class="subsection-header">Homelessness & housing</p>
+              <div class="row">
+                <label>How long homeless this episode
+                  <select name="homelessDuration">
+                    <option value="">—</option>
+                    <option value="lt1month">Less than 1 month</option>
+                    <option value="1to6months">1–6 months</option>
+                    <option value="6to12months">6–12 months</option>
+                    <option value="1to2years">1–2 years</option>
+                    <option value="2to5years">2–5 years</option>
+                    <option value="gt5years">More than 5 years</option>
+                  </select>
+                </label>
+                <label>Applied for public housing
+                  <select name="publicHousingApplied">
+                    <option value="">—</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="conditional" id="conditional-public-housing" hidden>
+                <div class="row">
+                  <label>When applied <input name="publicHousingWhen" type="text" placeholder="e.g. June 2024" /></label>
+                  <label>Where applied <input name="publicHousingWhere" type="text" placeholder="Tulsa Housing Authority" /></label>
+                </div>
+              </div>
+
+              <p class="subsection-header">Government benefits</p>
+              <p class="note" style="margin: 0 0 0.5rem;">
+                Multiple are normal (e.g. SSI + food stamps). Monthly amounts feed funder reporting.
+              </p>
+              <div class="row">
+                <label>Currently receiving any government benefits
+                  <select name="receivesGovernmentBenefits">
+                    <option value="">—</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                    <option value="unknown">Unknown</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="conditional" id="conditional-government-benefits" hidden>
+                <div class="benefit-grid">
+                  <div class="benefit-row">
+                    <label class="benefit-check"><input type="checkbox" name="benefit_foodStamps" /> Food stamps (SNAP)</label>
+                    <label class="benefit-amount">Monthly $ <input name="benefitAmount_foodStamps" type="text" inputmode="decimal" placeholder="0" /></label>
+                  </div>
+                  <div class="benefit-row">
+                    <label class="benefit-check"><input type="checkbox" name="benefit_ssi" /> SSI</label>
+                    <label class="benefit-amount">Monthly $ <input name="benefitAmount_ssi" type="text" inputmode="decimal" placeholder="0" /></label>
+                  </div>
+                  <div class="benefit-row">
+                    <label class="benefit-check"><input type="checkbox" name="benefit_ssdi" /> SSDI</label>
+                    <label class="benefit-amount">Monthly $ <input name="benefitAmount_ssdi" type="text" inputmode="decimal" placeholder="0" /></label>
+                  </div>
+                  <div class="benefit-row">
+                    <label class="benefit-check"><input type="checkbox" name="benefit_rsdi" /> RSDI / Social Security retirement</label>
+                    <label class="benefit-amount">Monthly $ <input name="benefitAmount_rsdi" type="text" inputmode="decimal" placeholder="0" /></label>
+                  </div>
+                  <div class="benefit-row">
+                    <label class="benefit-check"><input type="checkbox" name="benefit_vaDisability" /> VA disability</label>
+                    <label class="benefit-amount">Monthly $ <input name="benefitAmount_vaDisability" type="text" inputmode="decimal" placeholder="0" /></label>
+                  </div>
+                  <div class="benefit-row">
+                    <label class="benefit-check"><input type="checkbox" name="benefit_vaRetirement" /> VA retirement</label>
+                    <label class="benefit-amount">Monthly $ <input name="benefitAmount_vaRetirement" type="text" inputmode="decimal" placeholder="0" /></label>
+                  </div>
+                  <div class="benefit-row">
+                    <label class="benefit-check"><input type="checkbox" name="benefit_retirement" /> Retirement (other)</label>
+                    <label class="benefit-amount">Monthly $ <input name="benefitAmount_retirement" type="text" inputmode="decimal" placeholder="0" /></label>
+                  </div>
+                  <div class="benefit-row">
+                    <label class="benefit-check"><input type="checkbox" name="benefit_workersComp" /> Workers' compensation</label>
+                    <label class="benefit-amount">Monthly $ <input name="benefitAmount_workersComp" type="text" inputmode="decimal" placeholder="0" /></label>
+                  </div>
+                  <div class="benefit-row">
+                    <label class="benefit-check"><input type="checkbox" name="benefit_tribalBenefits" /> Tribal benefits</label>
+                    <label class="benefit-amount">Monthly $ <input name="benefitAmount_tribalBenefits" type="text" inputmode="decimal" placeholder="0" /></label>
+                  </div>
+                  <div class="benefit-row">
+                    <label class="benefit-check"><input type="checkbox" name="benefit_otherBenefit" /> Other benefit</label>
+                    <label class="benefit-amount">Monthly $ <input name="benefitAmount_otherBenefit" type="text" inputmode="decimal" placeholder="0" /></label>
+                  </div>
+                </div>
+                <label style="display: block; margin-top: 0.5rem;">Notes (e.g. specifics on "Other," combined household amount, etc.)
+                  <textarea name="benefitsNotes" rows="2"></textarea>
+                </label>
+              </div>
+
+              <p class="subsection-header">Employment</p>
+              <div class="row">
+                <label>Currently employed
+                  <select name="employed">
+                    <option value="">—</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="conditional" id="conditional-employed" hidden>
+                <div class="row">
+                  <label>Employer <input name="employer" type="text" /></label>
+                  <label>Wage / pay <input name="wage" type="text" placeholder="$15/hr, $32k/yr, etc." /></label>
+                </div>
+                <label style="display: block; margin-top: 0.5rem;">Skills / trade
+                  <textarea name="skills" rows="2" placeholder="Welding, food service, retail, …"></textarea>
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset class="section">
+              <legend>7. Substances & Legal</legend>
+
+              <p class="subsection-header">Substance use history</p>
+              <div class="row">
+                <label>First used <input name="firstUsedDate" type="text" placeholder="e.g. 1998 or age 16" /></label>
+                <label>Last used <input name="lastUsedDate" type="text" placeholder="e.g. 2 weeks ago" /></label>
+                <label>Last drug used <input name="lastDrug" type="text" /></label>
+              </div>
+
+              <p class="subsection-header">Legal issues</p>
+              <label style="display: block;">
+                <textarea name="legalIssues" rows="3" placeholder="Pending charges, probation, parole, warrants, restitution, etc."></textarea>
+              </label>
+            </fieldset>
+
+            <fieldset class="section">
+              <legend>8. Intake Artifacts</legend>
+              <p class="note" style="margin: 0 0 0.6rem;">Drug screen, medications, consents, and ODH 206 entry. Webcam photo and signature pad come in the next slice.</p>
+
+              <p class="subsection-header">Drug screen — 15 panel</p>
+              <table class="drug-panel">
+                <thead>
+                  <tr>
+                    <th>Substance</th>
+                    <th>Negative</th>
+                    <th>Positive</th>
+                    <th>Faint</th>
+                  </tr>
+                </thead>
+                <tbody id="drug-panel-body">
+                  <!-- populated by JS from DRUG_PANEL constant -->
+                </tbody>
+              </table>
+
+              <div class="row" style="margin-top: 0.75rem;">
+                <label>Did guest admit to other drugs (beyond Tylenol)?
+                  <select name="admittedToOtherDrugs">
+                    <option value="">—</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </label>
+                <label>Does guest agree with results?
+                  <select name="guestAgreesWithResults">
+                    <option value="">—</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </label>
+                <label>Observer name (test was not altered)
+                  <input name="observerName" type="text" />
+                </label>
+              </div>
+
+              <p class="subsection-header">Medications</p>
+              <p class="note" style="margin: 0 0 0.4rem;">Search the catalog. Click to add; fill in dosage and frequency. If a medication isn't listed, click "+ Add new" to save it to the catalog.</p>
+              <div class="med-picker">
+                <input id="med-search" type="text" placeholder="Type medication name…" autocomplete="off" />
+                <div id="med-search-dropdown" class="picker-dropdown" hidden></div>
+              </div>
+              <button id="med-add-new-btn" type="button" class="ghost" style="margin-top: 0.4rem;">+ Add new medication to catalog</button>
+              <div id="med-list"></div>
+
+              <p class="subsection-header">Photo & video consent</p>
+              <div class="consent-control">
+                <button id="photo-video-consent-btn" type="button" class="ghost">Read &amp; sign photo/video release</button>
+                <span id="photo-video-consent-status" class="muted">Not yet reviewed</span>
+                <input type="hidden" name="photoVideoConsent" />
+              </div>
+
+              <p class="subsection-header">ODH 206 — Standard Authorization to Disclose Health Information</p>
+              <div class="row">
+                <label>ODH 206 signed at intake
+                  <select name="odh206Signed">
+                    <option value="">—</option>
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                    <option value="declined">Declined</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="conditional" id="conditional-odh206" hidden>
+                <div class="consent-control" style="margin-bottom: 0.6rem;">
+                  <button id="odh206-read-btn" type="button" class="ghost">Read full ODH 206 authorization text</button>
+                  <span id="odh206-read-status" class="muted">Not yet reviewed by client</span>
+                  <input type="hidden" name="odh206TextReviewed" />
+                </div>
+                <p class="subsection-header">Authorization details</p>
+                <div class="row">
+                  <label>Disclosing party (provider releasing records)
+                    <input name="odh206DisclosingParty" type="text" />
+                  </label>
+                  <label>Receiving party
+                    <input name="odh206ReceivingParty" type="text" value="Good Samaritan Outreach" />
+                  </label>
+                  <label>Purpose
+                    <input name="odh206Purpose" type="text" placeholder="Service coordination, SSDI, …" />
+                  </label>
+                  <label>Expiration date <input name="odh206ExpirationDate" type="date" /></label>
+                  <label>Or expiration event
+                    <input name="odh206ExpirationEvent" type="text" placeholder="e.g. Upon discharge from program" />
+                  </label>
+                </div>
+
+                <p class="subsection-header">Information shared</p>
+                <div class="checkboxes">
+                  <label><input type="checkbox" name="odh206Info" value="general" /> General medical records</label>
+                  <label><input type="checkbox" name="odh206Info" value="mentalHealth" /> Mental-health records</label>
+                  <label><input type="checkbox" name="odh206Info" value="substanceAbuse" /> Substance-abuse records</label>
+                  <label><input type="checkbox" name="odh206Info" value="psychotherapyNotes" /> Psychotherapy notes <em>(exclusive)</em></label>
+                </div>
+                <p class="note">Per ODH 206: psychotherapy notes require their own separate authorization. If checked, no other category may be on the same authorization — save will be blocked.</p>
+              </div>
+
+              <p class="subsection-header">Exit interview</p>
+              <div class="checkboxes">
+                <label><input type="checkbox" name="acknowledgesExitInterview" /> Guest acknowledges they will receive an exit interview when leaving GSO</label>
+              </div>
+            </fieldset>
+
+            <fieldset class="section">
+              <legend>9. Signatures</legend>
+              <p class="note" style="margin: 0 0 0.6rem;">Sign once for the entire intake event. The same signatures are referenced by the drug screen, photo/video consent, and ODH 206 (all signed at intake). Use mouse, trackpad, or touchscreen.</p>
+
+              <p class="subsection-header">Guest signature</p>
+              <div class="sig-wrap">
+                <canvas id="sig-guest" class="sig-pad" width="600" height="160"></canvas>
+                <div class="sig-controls">
+                  <button id="sig-guest-clear" type="button" class="ghost">Clear</button>
+                </div>
+              </div>
+
+              <p class="subsection-header" style="margin-top: 1rem;">Staff signature</p>
+              <div class="sig-wrap">
+                <canvas id="sig-staff" class="sig-pad" width="600" height="160"></canvas>
+                <div class="sig-controls">
+                  <button id="sig-staff-clear" type="button" class="ghost">Clear</button>
+                </div>
+              </div>
+            </fieldset>
+
+            <button type="submit" id="intake-submit">Save Intake</button>
+            <p id="intake-status" class="status" hidden></p>
+          </form>
+
+          <div id="intake-success" class="success-card" hidden>
+            <h3>Client created</h3>
+            <dl>
+              <dt>Client ID</dt><dd><code id="success-cid"></code></dd>
+              <dt>Intake ID</dt><dd><code id="success-iid"></code></dd>
+              <dt>Name</dt><dd id="success-name"></dd>
+              <dt>SSN</dt><dd>
+                <span class="ssn-display" id="success-ssn"></span>
+                <button class="ghost ssn-reveal-btn" id="success-ssn-reveal" type="button">Show full SSN</button>
+                <span id="success-ssn-note" class="note" hidden>Re-masking in 8s…</span>
+              </dd>
+              <dt>Client login PIN</dt><dd>
+                <span id="success-pin" class="pin-display">—</span>
+                <p id="success-pin-note" class="note" style="margin: 0.25rem 0 0;">Write this down or print it for the client. <strong>It will not be shown again.</strong> Use Reset PIN on the client detail page if lost.</p>
+              </dd>
+              <dt>Uploads</dt><dd id="success-uploads" class="muted"></dd>
+            </dl>
+            <img id="success-photo" alt="Intake photo" hidden style="max-width: 160px; border-radius: 6px; margin-top: 0.5rem;" />
+            <p class="note" style="margin-top: 0.75rem;">A <code>view</code> entry is written to <code>accessLog</code> each time SSN is revealed.</p>
+          </div>
+        </div>
+      </div><!-- /tab-intake -->
+
+      <div class="tab-content" id="tab-exit">
+        <div class="panel">
+          <h2>Record an Exit</h2>
+          <p class="note">Documents a guest leaving GSO. Sets the client's status to <code>exited</code>, records housing destination and acknowledgements, and captures guest + staff signatures.</p>
+
+          <form id="exit-form" autocomplete="off">
+
+            <fieldset class="section">
+              <legend>Client</legend>
+              <p class="note" style="margin-top: 0;">Search and select the guest exiting. The exit form opens once a client is selected.</p>
+              <div id="exit-client-picker" class="client-picker"></div>
+            </fieldset>
+
+            <div id="exit-form-body" hidden>
+
+              <fieldset class="section">
+                <legend>Exit details</legend>
+
+                <p class="subsection-header">Date &amp; reason</p>
+                <div class="row">
+                  <label>Exit date <input name="exitDate" type="date" required /></label>
+                  <label>Reason for exit (free text)
+                    <input name="exitReason" type="text" placeholder="e.g. Completed program, voluntary departure" />
+                  </label>
+                </div>
+
+                <p class="subsection-header">Housing assessment at exit</p>
+                <p class="note" style="margin: 0 0 0.4rem;">Pick the closest match. This drives the master record's <code>exitReasonCategory</code> for reporting.</p>
+                <div class="exit-housing-options">
+                  <label><input type="radio" name="housingAssessment" value="newHousingUnit" /> Moved to a new housing unit</label>
+                  <label><input type="radio" name="housingAssessment" value="familyFriends" /> Moved in with family or friends (temporary or permanent)</label>
+                  <label><input type="radio" name="housingAssessment" value="transitionalHousing" /> Moved to transitional or temporary housing facility</label>
+                  <label><input type="radio" name="housingAssessment" value="shelterOrUnfit" /> Moved to a shelter or place unfit for humans</label>
+                  <label><input type="radio" name="housingAssessment" value="jail" /> Client went to jail</label>
+                  <label><input type="radio" name="housingAssessment" value="deceased" /> Client died</label>
+                  <label><input type="radio" name="housingAssessment" value="refused" /> Client refused to provide</label>
+                  <label><input type="radio" name="housingAssessment" value="other" /> Other / unknown</label>
+                </div>
+
+                <p class="subsection-header">Acknowledgements</p>
+                <div class="checkboxes">
+                  <label><input type="checkbox" name="ackPersonalItems48h" /> Guest understands personal items must be picked up within 48 hours; afterwards they will be donated or disposed of</label>
+                  <label><input type="checkbox" name="ackMail" /> Guest understands GSO will not hold mail; Change of Address must be filed with the Post Office</label>
+                </div>
+
+                <p class="subsection-header">Return eligibility</p>
+                <p class="note" style="margin: 0 0 0.4rem;">Sets the policy that will show up at re-entry intake for this client.</p>
+                <div class="row">
+                  <label>Eligible to return on <span class="muted">(optional)</span>
+                    <input name="eligibleToReturnDate" type="date" />
+                  </label>
+                </div>
+                <div class="checkboxes">
+                  <label><input type="checkbox" name="noReturn" /> Do NOT allow this client to return to GSO</label>
+                  <label><input type="checkbox" name="warnAtReturn" /> Warn staff to review this client's past history before doing a re-entry intake</label>
+                </div>
+
+                <p class="subsection-header">Notes</p>
+                <label style="display: block;">
+                  <textarea name="exitNotes" rows="3" placeholder="Forwarding info, follow-up needs, anything else worth recording."></textarea>
+                </label>
+              </fieldset>
+
+              <fieldset class="section">
+                <legend>Signatures</legend>
+                <div class="row">
+                  <label>Guest's name printed <input name="guestNamePrinted" type="text" /></label>
+                </div>
+
+                <p class="subsection-header" style="margin-top: 1rem;">Guest signature</p>
+                <div class="sig-wrap">
+                  <canvas id="exit-sig-guest" class="sig-pad" width="600" height="160"></canvas>
+                  <div class="sig-controls">
+                    <button id="exit-sig-guest-clear" type="button" class="ghost">Clear</button>
+                  </div>
+                </div>
+
+                <p class="subsection-header" style="margin-top: 1rem;">Staff signature</p>
+                <div class="sig-wrap">
+                  <canvas id="exit-sig-staff" class="sig-pad" width="600" height="160"></canvas>
+                  <div class="sig-controls">
+                    <button id="exit-sig-staff-clear" type="button" class="ghost">Clear</button>
+                  </div>
+                </div>
+              </fieldset>
+
+              <button type="submit" id="exit-submit">Save exit</button>
+              <p id="exit-status" class="status" hidden></p>
+            </div>
+
+          </form>
+
+          <div id="exit-success" class="success-card" hidden>
+            <h3>Exit recorded</h3>
+            <dl>
+              <dt>Client ID</dt><dd><code id="exit-success-cid"></code></dd>
+              <dt>Exit ID</dt><dd><code id="exit-success-eid"></code></dd>
+              <dt>Name</dt><dd id="exit-success-name"></dd>
+              <dt>Reason</dt><dd id="exit-success-reason"></dd>
+              <dt>Date</dt><dd id="exit-success-date"></dd>
+              <dt>Uploads</dt><dd id="exit-success-uploads" class="muted"></dd>
+            </dl>
+            <p class="note" style="margin-top: 0.75rem;">Master record updated to <code>exited</code>. Pick another client above to record another exit.</p>
+          </div>
+        </div>
+      </div><!-- /tab-exit -->
+
+      <div class="tab-content" id="tab-audit">
+        <h2>Audit log</h2>
+        <p class="note">Every state-changing action and every reveal of sensitive
+          data (SSN, medical, scanned/PHI documents) writes an entry here.
+          Admin-only. Showing the most recent entries — use the filters to
+          narrow down. (Entries older than the load limit aren't shown here; the
+          full record lives in Firestore and Cloud Audit Logs.)</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:.75rem 0;">
+          <input type="search" id="audit-search" placeholder="Search (email, entity, ID, details)…" style="min-width:220px;flex:1;" />
+          <select id="audit-filter-action"><option value="">All actions</option></select>
+          <select id="audit-filter-entity"><option value="">All entity types</option></select>
+          <select id="audit-filter-user"><option value="">All users</option></select>
+          <select id="audit-limit">
+            <option value="200">Last 200</option>
+            <option value="500" selected>Last 500</option>
+            <option value="1000">Last 1000</option>
+            <option value="2000">Last 2000</option>
+          </select>
+          <button type="button" id="audit-refresh">Refresh</button>
+        </div>
+        <p id="audit-count" class="note"></p>
+        <div style="overflow-x:auto;">
+          <table id="audit-table">
+            <thead>
+              <tr><th>When</th><th>User</th><th>Action</th><th>Entity</th><th>Entity ID</th><th>Details</th></tr>
+            </thead>
+            <tbody id="audit-body"><tr class="empty"><td colspan="6">Open this tab to load.</td></tr></tbody>
+          </table>
+        </div>
+      </div><!-- /tab-audit -->
+
+      </div><!-- /main-col -->
+    </section>
+
+    <!-- Client app: shown when the signed-in user has role=="client". Mobile-
+         first single-column layout with big tap targets — clients use this
+         from their phone (or any browser) for the four daily interactions:
+         sign-in/out, shower, and three meals. -->
+    <section id="client-app-section" hidden>
+      <div class="client-greeting">
+        <h2 id="client-greeting-name">Hi</h2>
+        <p class="muted"><span id="client-greeting-id"></span></p>
+      </div>
+
+      <div class="client-status-pill" id="client-status-pill">
+        <span id="client-status-label">Loading…</span>
+      </div>
+
+      <div class="client-actions">
+        <button id="client-sign-out-btn" type="button" class="big-btn big-btn-out">Sign out</button>
+        <button id="client-sign-in-btn" type="button" class="big-btn big-btn-in">Sign in</button>
+      </div>
+
+      <div class="client-section">
+        <h3>Log a meal</h3>
+        <div class="client-meal-row">
+          <button data-meal="breakfast" type="button" class="big-btn big-btn-meal">Breakfast</button>
+          <button data-meal="lunch" type="button" class="big-btn big-btn-meal">Lunch</button>
+          <button data-meal="dinner" type="button" class="big-btn big-btn-meal">Dinner</button>
+        </div>
+      </div>
+
+      <div class="client-section">
+        <button id="client-shower-btn" type="button" class="big-btn big-btn-shower">Log shower</button>
+      </div>
+
+      <p id="client-action-status" class="status" hidden></p>
+
+      <div class="client-section">
+        <h3>Today</h3>
+        <div id="client-today-feed"><p class="note">Loading…</p></div>
+      </div>
+
+      <div class="client-section" id="client-schedule-section">
+        <h3>My weekly schedule</h3>
+        <div class="schedule-week-pick">
+          <label>Week of <input type="date" id="client-schedule-week" /></label>
+          <button id="client-schedule-this-week" type="button" class="ghost">This week</button>
+          <button id="client-schedule-next-week" type="button" class="ghost">Next week</button>
+        </div>
+        <div id="client-schedule-status"></div>
+        <div id="client-schedule-events"></div>
+        <button id="client-schedule-add-btn" type="button" class="ghost">+ Add event</button>
+        <button id="client-schedule-submit-btn" type="button" class="big-btn big-btn-meal">Submit for approval</button>
+        <p id="client-schedule-msg" class="status" hidden></p>
+      </div>
+
+      <div class="client-section" id="client-info-update-section">
+        <h3>Report a change</h3>
+        <p class="note">Let staff know when something changes — you got an ID, started a job, completed a program. A staff member will review and confirm it.</p>
+        <label class="form-row">What changed?
+          <select id="client-info-update-type"></select>
+        </label>
+        <label class="form-row">When? <input type="date" id="client-info-update-date" /></label>
+        <label class="form-row">Notes (optional)
+          <textarea id="client-info-update-notes" rows="2" placeholder="Anything staff should know"></textarea>
+        </label>
+        <button id="client-info-update-submit-btn" type="button" class="big-btn big-btn-meal">Submit for approval</button>
+        <p id="client-info-update-msg" class="status" hidden></p>
+      </div>
+
+      <div class="client-section">
+        <h3>My recent submissions</h3>
+        <div id="client-submissions-list"><p class="note">Loading…</p></div>
+      </div>
+
+      <div class="client-section">
+        <h3>My documents</h3>
+        <p class="note">Tap "View" on any document to open a copy. You can save or share it with an employer or agency.</p>
+        <div id="client-app-documents"><p class="note">Loading…</p></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="consent-modal" class="modal" hidden>
+    <div class="modal-backdrop" id="consent-modal-backdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="consent-modal-title">
+      <h3 id="consent-modal-title"></h3>
+      <div id="consent-modal-body" class="modal-body"></div>
+      <div class="modal-footer">
+        <button type="button" id="consent-modal-deny" class="ghost"></button>
+        <button type="button" id="consent-modal-accept"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reason picker modal — must live OUTSIDE any .tab-content so it can
+       open from the Sign In/Out tab AND the client detail page (parent
+       .tab-content sets display:none on inactive tabs, which would hide
+       a nested modal). -->
+  <div id="reason-modal" class="modal" hidden>
+    <div class="modal-backdrop" id="reason-modal-backdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="reason-modal-title">
+      <h3 id="reason-modal-title">Why are they signing out?</h3>
+      <p id="reason-modal-subtitle" class="note"></p>
+      <div class="reason-options" id="reason-options"></div>
+      <div id="reason-other-wrap" hidden>
+        <label>Reason note <input type="text" id="reason-other-text" placeholder="Brief description" /></label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="reason-modal-cancel" class="ghost">Cancel</button>
+        <button type="button" id="reason-modal-confirm" disabled>Confirm sign-out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ODH 206 PDF generator modal. Lives outside .tab-content so it can open
+       from the Clients detail page without being hidden by the tab switcher. -->
+  <div id="odh206-gen-modal" class="modal" hidden>
+    <div class="modal-backdrop" id="odh206-gen-modal-backdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="odh206-gen-modal-title">
+      <h3 id="odh206-gen-modal-title">Generate ODH 206 authorization</h3>
+      <div class="modal-form" id="odh206-gen-modal-body">
+        <p id="odh206-gen-summary" class="note"></p>
+        <label class="form-row">Disclosing party (whose records will be released)
+          <input type="text" id="odh206-gen-disclosing" placeholder="e.g. McAlester Regional Health Center" />
+        </label>
+        <fieldset class="form-group">
+          <legend>Information to be shared</legend>
+          <label><input type="checkbox" id="odh206-gen-info-general" /> Entire medical record</label>
+          <label><input type="checkbox" id="odh206-gen-info-mental" /> Mental-health records</label>
+          <label><input type="checkbox" id="odh206-gen-info-substance" /> Substance-abuse records</label>
+          <label><input type="checkbox" id="odh206-gen-info-psycho" /> Psychotherapy notes <em>(exclusive — no other category may be checked)</em></label>
+        </fieldset>
+        <fieldset class="form-group">
+          <legend>Purpose</legend>
+          <label><input type="radio" name="odh206-gen-purpose" value="insurance" /> Insurance</label>
+          <label><input type="radio" name="odh206-gen-purpose" value="continuedTreatment" /> Continued treatment</label>
+          <label><input type="radio" name="odh206-gen-purpose" value="legal" /> Legal</label>
+          <label><input type="radio" name="odh206-gen-purpose" value="atMyRequest" checked /> At my or my representative's request</label>
+          <label><input type="radio" name="odh206-gen-purpose" value="other" /> Other</label>
+          <label id="odh206-gen-purpose-other-wrap" class="form-row" hidden>Other purpose
+            <input type="text" id="odh206-gen-purpose-other" />
+          </label>
+        </fieldset>
+        <fieldset class="form-group">
+          <legend>Expiration</legend>
+          <label><input type="radio" name="odh206-gen-expiry" value="event" checked /> Upon leaving Good Samaritan Outreach Program</label>
+          <label><input type="radio" name="odh206-gen-expiry" value="date" /> Specific date
+            <input type="date" id="odh206-gen-expiry-date" disabled />
+          </label>
+        </fieldset>
+        <p id="odh206-gen-error" class="error" hidden></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="odh206-gen-cancel" class="ghost">Cancel</button>
+        <button type="button" id="odh206-gen-confirm">Generate PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Photo / Video release generator modal -->
+  <div id="photo-consent-gen-modal" class="modal" hidden>
+    <div class="modal-backdrop" id="photo-consent-gen-modal-backdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="photo-consent-gen-modal-title">
+      <h3 id="photo-consent-gen-modal-title">Generate Photo / Video release</h3>
+      <div class="modal-form">
+        <p id="photo-consent-gen-summary" class="note"></p>
+        <fieldset class="form-group">
+          <legend>Participant role</legend>
+          <label><input type="radio" name="photo-consent-role" value="client" checked /> Client</label>
+          <label><input type="radio" name="photo-consent-role" value="staff" /> Staff</label>
+          <label><input type="radio" name="photo-consent-role" value="other" /> Other</label>
+        </fieldset>
+        <fieldset class="form-group">
+          <legend>Response</legend>
+          <label><input type="radio" name="photo-consent-response" value="accept" checked /> Accept</label>
+          <label><input type="radio" name="photo-consent-response" value="deny" /> Deny</label>
+          <label><input type="radio" name="photo-consent-response" value="blank" /> Leave blank (let participant mark in person)</label>
+        </fieldset>
+        <p class="note">Phone, email, and date are pulled from the client record. Participant signature and staff signature lines stay blank for handwritten signing.</p>
+        <p id="photo-consent-gen-error" class="error" hidden></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="photo-consent-gen-cancel" class="ghost">Cancel</button>
+        <button type="button" id="photo-consent-gen-confirm">Generate PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Significant Events tracker generator modal -->
+  <div id="sigevents-gen-modal" class="modal" hidden>
+    <div class="modal-backdrop" id="sigevents-gen-modal-backdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="sigevents-gen-modal-title">
+      <h3 id="sigevents-gen-modal-title">Generate Significant Events tracker</h3>
+      <div class="modal-form">
+        <p id="sigevents-gen-summary" class="note"></p>
+        <p class="note">A one-page printable form pre-filled with the client's name and today's date, with blank lines for staff to handwrite events (failed drug tests, missed bed checks, major incidents). Date each entry.</p>
+        <p id="sigevents-gen-error" class="error" hidden></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="sigevents-gen-cancel" class="ghost">Cancel</button>
+        <button type="button" id="sigevents-gen-confirm">Generate PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Client photo update modal. Lets staff capture or upload a new photo
+       from the client detail page when one was skipped at intake or needs
+       refreshing. Mirrors the intake photo capture flow. -->
+  <div id="client-photo-modal" class="modal" hidden>
+    <div class="modal-backdrop" id="client-photo-modal-backdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="client-photo-modal-title">
+      <h3 id="client-photo-modal-title">Update client photo</h3>
+      <div class="modal-body">
+        <div class="photo-capture">
+          <div id="client-photo-controls">
+            <button id="client-photo-start-btn" type="button" class="ghost">Start camera</button>
+            <label class="ghost-label">
+              or upload from device
+              <input id="client-photo-file" type="file" accept="image/*" capture="user" />
+            </label>
+          </div>
+          <div id="client-photo-video-section" hidden>
+            <video id="client-photo-video" autoplay playsinline muted></video>
+            <div class="photo-video-controls">
+              <button id="client-photo-capture-btn" type="button">Take photo</button>
+              <button id="client-photo-camera-cancel-btn" type="button" class="ghost">Cancel camera</button>
+            </div>
+          </div>
+          <div id="client-photo-preview-section" hidden>
+            <img id="client-photo-preview" alt="New client photo" />
+            <button id="client-photo-retake-btn" type="button" class="ghost">Retake / replace</button>
+          </div>
+          <p id="client-photo-status" class="note"></p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="client-photo-cancel" class="ghost">Cancel</button>
+        <button type="button" id="client-photo-save" disabled>Save photo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bed-assign modal. Lives outside any .tab-content so it can open from
+       both the Beds tab (pick a client for a bed) and the Clients detail
+       page (pick a bed for a client) without being hidden by tab-switching
+       display:none. -->
+  <div id="bed-assign-modal" class="modal" hidden>
+    <div class="modal-backdrop" id="bed-assign-modal-backdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="bed-assign-modal-title">
+      <h3 id="bed-assign-modal-title">Assign bed</h3>
+      <div id="bed-assign-modal-body" class="modal-body"></div>
+      <div class="modal-footer">
+        <button type="button" id="bed-assign-modal-cancel" class="ghost">Cancel</button>
+        <button type="button" id="bed-assign-modal-unassign" class="ghost" hidden>Unassign bed</button>
+        <button type="button" id="bed-assign-modal-save">Assign</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Random drug test entry — lives outside any .tab-content so it can
+       open from the Clients detail page without being hidden by tab-switch
+       display:none. Same 15-panel + observer + admitted + agrees shape as
+       the intake-time drug screen, but written with intakeId=null so the
+       UI can distinguish ongoing random tests from intake-time tests. -->
+  <div id="drug-test-modal" class="modal" hidden>
+    <div class="modal-backdrop" id="drug-test-modal-backdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="drug-test-modal-title">
+      <h3 id="drug-test-modal-title">Record drug test</h3>
+      <div class="modal-form">
+        <div class="row">
+          <label>Test date <input type="date" id="drug-test-date" required /></label>
+          <label>Observer name (test was not altered)
+            <input type="text" id="drug-test-observer" />
+          </label>
+        </div>
+        <p class="subsection-header">15-panel results</p>
+        <table class="drug-panel">
+          <thead>
+            <tr>
+              <th>Substance</th>
+              <th>Negative</th>
+              <th>Positive</th>
+              <th>Faint</th>
+            </tr>
+          </thead>
+          <tbody id="drug-test-panel-body">
+            <!-- populated by JS from DRUG_PANEL constant -->
+          </tbody>
+        </table>
+        <div class="row" style="margin-top: 0.75rem;">
+          <label>Did guest admit to other drugs (beyond Tylenol)?
+            <select id="drug-test-admitted">
+              <option value="">—</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+          <label>Does guest agree with results?
+            <select id="drug-test-agrees">
+              <option value="">—</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+        </div>
+        <label>Notes <span class="muted">(optional)</span>
+          <textarea id="drug-test-notes" rows="2" maxlength="500"></textarea>
+        </label>
+        <p id="drug-test-error" class="error" hidden></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="drug-test-cancel" class="ghost">Cancel</button>
+        <button type="button" id="drug-test-confirm">Save drug test</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scanned documents — upload modal. Lives outside any .tab-content so
+       it can open from the Clients detail page without being hidden by
+       tab-switching display:none. Same pattern as bed-assign / reason
+       picker / ODH 206 PDF modals. -->
+  <div id="scanned-doc-modal" class="modal" hidden>
+    <div class="modal-backdrop" id="scanned-doc-modal-backdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="scanned-doc-modal-title">
+      <h3 id="scanned-doc-modal-title">Upload document</h3>
+      <div class="modal-form">
+        <label>Document type
+          <select id="scanned-doc-type" required>
+            <option value="">— pick —</option>
+            <option value="stateID">State ID / Driver's License</option>
+            <option value="ssc">Social Security Card</option>
+            <option value="birthCert">Birth Certificate</option>
+            <option value="transcript">School Transcript</option>
+            <option value="diploma">Diploma / GED</option>
+            <option value="insurance">Medical Insurance Card</option>
+            <option value="library">Library Card</option>
+            <option value="cdib">CDIB</option>
+            <option value="panelResults">Panel Results</option>
+            <option value="significantEvents">Significant Events</option>
+          </select>
+        </label>
+        <label>Label <span class="muted">(optional — e.g. "TCC Spring 2024")</span>
+          <input type="text" id="scanned-doc-label" maxlength="120" />
+        </label>
+        <label>Front <span class="muted">(image or PDF, max 10 MB)</span>
+          <input type="file" id="scanned-doc-front" accept="image/*,application/pdf" required />
+        </label>
+        <label>Back <span class="muted">(optional — image or PDF)</span>
+          <input type="file" id="scanned-doc-back" accept="image/*,application/pdf" />
+        </label>
+        <label>Notes <span class="muted">(optional)</span>
+          <textarea id="scanned-doc-notes" rows="2" maxlength="500"></textarea>
+        </label>
+        <p id="scanned-doc-error" class="error" hidden></p>
+        <p id="scanned-doc-progress" class="note" hidden></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="scanned-doc-cancel" class="ghost">Cancel</button>
+        <button type="button" id="scanned-doc-confirm">Upload</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add-new-medication modal: lets staff append a medication to the
+       seeded medicationCatalog when they hit one that isn't in the dropdown.
+       Writes to medicationCatalog/{sanitized-name}; the catalog cache is
+       invalidated on success so the new entry shows up immediately. -->
+  <div id="med-add-modal" class="modal" hidden>
+    <div class="modal-backdrop" id="med-add-modal-backdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="med-add-modal-title">
+      <h3 id="med-add-modal-title">Add medication to catalog</h3>
+      <div class="modal-form">
+        <label>Medication name <span class="muted">(required)</span>
+          <input type="text" id="med-add-name" maxlength="190" required />
+        </label>
+        <label>Reasons for medication <span class="muted">(optional)</span>
+          <input type="text" id="med-add-reasons" maxlength="500" />
+        </label>
+        <label>Side effects <span class="muted">(optional)</span>
+          <textarea id="med-add-side-effects" rows="3" maxlength="1000"></textarea>
+        </label>
+        <p id="med-add-error" class="error" hidden></p>
+        <p id="med-add-progress" class="note" hidden></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="med-add-cancel" class="ghost">Cancel</button>
+        <button type="button" id="med-add-confirm">Save & add to client</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHI record upload modal — lives outside any .tab-content so it can open
+       from the client detail page. Mirrors the scanned-doc modal but ties the
+       upload to an ODH 206 authorization and allows larger (≤50 MB) files. -->
+  <div id="phi-record-modal" class="modal" hidden>
+    <div class="modal-backdrop" id="phi-record-modal-backdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="phi-record-modal-title">
+      <h3 id="phi-record-modal-title">Upload PHI record</h3>
+      <div class="modal-form">
+        <label>Received under which ODH 206 authorization?
+          <select id="phi-record-auth" required>
+            <option value="">— pick an authorization —</option>
+          </select>
+        </label>
+        <label>Label <span class="muted">(e.g. "Discharge summary — St. Anthony, Mar 2026")</span>
+          <input type="text" id="phi-record-label" maxlength="160" />
+        </label>
+        <label>Date received <span class="muted">(optional)</span>
+          <input type="date" id="phi-record-received" />
+        </label>
+        <label>File <span class="muted">(PDF or image, max 50 MB)</span>
+          <input type="file" id="phi-record-file" accept="application/pdf,image/*,.tif,.tiff" required />
+        </label>
+        <label>Notes <span class="muted">(optional)</span>
+          <textarea id="phi-record-notes" rows="2" maxlength="600"></textarea>
+        </label>
+        <p id="phi-record-error" class="error" hidden></p>
+        <p id="phi-record-progress" class="note" hidden></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="phi-record-cancel" class="ghost">Cancel</button>
+        <button type="button" id="phi-record-confirm">Upload</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Printable thrift schedule. Populated on demand by handleThriftPrint
+       (app.js); shown only when body has class .printing-thrift, which is
+       toggled around window.print(). Lives outside any tab so the print
+       CSS can hide every other tab without losing this view. -->
+  <div id="thrift-print-view" hidden>
+    <div id="thrift-print-content"></div>
+  </div>
+
+  <!-- Printable client intake report. Same pattern as #thrift-print-view:
+       populated on demand by handleIntakeReportPrint, shown only when body
+       has class .printing-intake-report. -->
+  <div id="intake-report-print-view" hidden>
+    <div id="intake-report-print-content"></div>
+  </div>
+
+  <!-- Printable Client History Report. Same pattern; toggled by class
+       .printing-history-report on body. Populated by handleHistoryReportPrint. -->
+  <div id="history-report-print-view" hidden>
+    <div id="history-report-print-content"></div>
+  </div>
+
+  <script type="module" src="app.js?v=20260514-history-report-2"></script>
+</body>
+</html>
