@@ -1,5 +1,17 @@
 rules_version = '2';
 
+// ---------------------------------------------------------------------------
+// PER-TENANT VALUES (edit when forking this app for another org).
+// Rules files can't import — public/config.js and functions/config.mjs hold
+// the same values for the app and Functions sides; keep them in sync.
+//   - Staff email domain:      'thrivegso.com'   (used in isStaff / isAdmin)
+//   - Admin email fallback:    'daniel@thrivegso.com'  (used in isAdmin)
+//   - Client ID format:        'GSO-[0-9]{5}'    (used in checkInOuts /
+//                                                pendingClientSubmissions
+//                                                resource-validation rules)
+// Search this file for "thrivegso" and "GSO-" to find every occurrence.
+// ---------------------------------------------------------------------------
+//
 // Three-role model (see admin_automation/client_database_plan.md section 10a):
 //   - admin  : daniel@thrivegso.com — full access including deletes and user management
 //   - staff  : any verified @thrivegso.com account — read/write client data, run reports,

@@ -3,13 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Page title and brand text are populated from public/config.js at boot
+       via applyTenantBranding(); the literals below are first-paint defaults. -->
   <title>GSO Staff — Self-Evaluation Tracker (Prototype)</title>
   <link rel="stylesheet" href="styles.css?v=20260514-history-report-2" />
 </head>
 <body>
   <header>
     <div class="brand">
-      <span class="brand-mark"><span class="brand-gso">GSO</span><span class="brand-thrive">THRIVE</span></span>
+      <span class="brand-mark"><span class="brand-gso" data-tenant-text="orgShort">GSO</span><span class="brand-thrive" data-tenant-text="orgTagline">THRIVE</span></span>
     </div>
   </header>
 
@@ -19,7 +21,7 @@
 
       <div class="signin-staff">
         <h3>Staff</h3>
-        <p>Use your <strong>@thrivegso.com</strong> Google account.</p>
+        <p data-tenant-html="staffDomainHint">Use your <strong>@thrivegso.com</strong> Google account.</p>
         <button id="signin-btn" type="button">Sign in with Google</button>
         <p id="signin-error" class="error" hidden></p>
       </div>
@@ -31,7 +33,7 @@
         <p>Sign in with your <strong>Client ID</strong> and <strong>6-digit PIN</strong> from staff.</p>
         <form id="client-signin-form">
           <label>Client ID
-            <input id="client-signin-id" type="text" inputmode="text" autocomplete="username" placeholder="GSO-NNNNN" required />
+            <input id="client-signin-id" type="text" inputmode="text" autocomplete="username" placeholder="GSO-NNNNN" data-tenant-placeholder="clientIdExample" required />
           </label>
           <label>PIN
             <input id="client-signin-pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="6" pattern="[0-9]{6}" placeholder="6 digits" required />
@@ -45,8 +47,8 @@
     <section id="app-section" hidden>
       <aside class="sidebar">
         <div class="sidebar-mark">
-          <span class="brand-gso">GSO</span>
-          <span class="brand-thrive">THRIVE</span>
+          <span class="brand-gso" data-tenant-text="orgShort">GSO</span>
+          <span class="brand-thrive" data-tenant-text="orgTagline">THRIVE</span>
         </div>
         <nav class="sidenav" role="tablist">
           <div class="nav-section">
@@ -307,6 +309,14 @@
                     <span id="client-reveal-medical-status" class="muted">Hidden by default. Each reveal is logged.</span>
                   </div>
                   <dl class="kv-grid" id="client-medical" hidden></dl>
+                  <div id="client-medications-panel" hidden>
+                    <p class="subsection-header">Medications</p>
+                    <p class="note" style="margin: 0 0 0.4rem;">Active prescriptions. Review before drug screens (to flag false positives) and before issuing any new medication.</p>
+                    <div id="client-medications-list"></div>
+                    <div class="section-actions" style="margin-top: 0.6rem;">
+                      <button id="client-med-add-btn" type="button" class="ghost">+ Add medication</button>
+                    </div>
+                  </div>
                 </div>
               </fieldset>
 
@@ -1279,7 +1289,7 @@
                     <input name="odh206DisclosingParty" type="text" />
                   </label>
                   <label>Receiving party
-                    <input name="odh206ReceivingParty" type="text" value="Good Samaritan Outreach" />
+                    <input name="odh206ReceivingParty" type="text" value="Good Samaritan Outreach" data-tenant-value="orgName" />
                   </label>
                   <label>Purpose
                     <input name="odh206Purpose" type="text" placeholder="Service coordination, SSDI, …" />
@@ -1884,6 +1894,70 @@
     </div>
   </div>
 
+  <!-- Add-medication-to-client modal: post-intake addition of a medication
+       to an existing client. Picks from medicationCatalog (same as intake) and
+       writes a new doc to /medications with intakeId=null. -->
+  <div id="client-med-add-modal" class="modal" hidden>
+    <div class="modal-backdrop" id="client-med-add-modal-backdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="client-med-add-modal-title">
+      <h3 id="client-med-add-modal-title">Add medication</h3>
+      <div class="modal-form">
+        <label>Search catalog
+          <div class="med-picker">
+            <input id="client-med-search" type="text" placeholder="Type medication name…" autocomplete="off" />
+            <div id="client-med-search-dropdown" class="picker-dropdown" hidden></div>
+          </div>
+        </label>
+        <div id="client-med-selected" hidden>
+          <div class="med-row">
+            <div class="med-row-header">
+              <strong id="client-med-selected-name"></strong>
+              <button type="button" id="client-med-clear" class="ghost ssn-reveal-btn">Change</button>
+            </div>
+            <div class="muted" id="client-med-selected-reasons" style="font-size: 0.85rem; margin-bottom: 0.4rem;"></div>
+            <div class="row">
+              <label>Dosage <input type="text" id="client-med-dosage" placeholder="e.g. 10 mg" /></label>
+              <label>Frequency <input type="text" id="client-med-frequency" placeholder="e.g. once daily, every 6h" /></label>
+              <label>Custom reason (overrides catalog)
+                <input type="text" id="client-med-custom-reason" />
+              </label>
+              <label>Prescribed start date <input type="date" id="client-med-start-date" /></label>
+            </div>
+          </div>
+        </div>
+        <p id="client-med-add-error" class="error" hidden></p>
+        <p id="client-med-add-progress" class="note" hidden></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="client-med-add-cancel" class="ghost">Cancel</button>
+        <button type="button" id="client-med-add-confirm" disabled>Add medication</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Discontinue-medication confirmation modal: marks endDate on a
+       /medications doc instead of deleting, so the discontinued record stays
+       in client history. -->
+  <div id="client-med-stop-modal" class="modal" hidden>
+    <div class="modal-backdrop" id="client-med-stop-modal-backdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="client-med-stop-modal-title">
+      <h3 id="client-med-stop-modal-title">Discontinue medication</h3>
+      <div class="modal-form">
+        <p>Mark <strong id="client-med-stop-name"></strong> as no longer prescribed. The medication stays in the client's history with an end date — it is not deleted.</p>
+        <label>End date <input type="date" id="client-med-stop-date" /></label>
+        <label>Reason for discontinuing <span class="muted">(optional)</span>
+          <input type="text" id="client-med-stop-reason" maxlength="200" placeholder="e.g. prescription ended, switched medication" />
+        </label>
+        <p id="client-med-stop-error" class="error" hidden></p>
+        <p id="client-med-stop-progress" class="note" hidden></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="client-med-stop-cancel" class="ghost">Cancel</button>
+        <button type="button" id="client-med-stop-confirm">Discontinue</button>
+      </div>
+    </div>
+  </div>
+
   <!-- PHI record upload modal — lives outside any .tab-content so it can open
        from the client detail page. Mirrors the scanned-doc modal but ties the
        upload to an ODH 206 authorization and allows larger (≤50 MB) files. -->
@@ -1940,6 +2014,6 @@
     <div id="history-report-print-content"></div>
   </div>
 
-  <script type="module" src="app.js?v=20260514-history-report-2"></script>
+  <script type="module" src="app.js?v=20260514-client-meds-1"></script>
 </body>
 </html>

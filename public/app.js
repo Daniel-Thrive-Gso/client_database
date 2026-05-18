@@ -13,22 +13,26 @@ import {
 import {
   getFunctions, httpsCallable
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-functions.js";
+import {
+  TENANT,
+  CLIENT_ID_RE,
+  isAdminEmail,
+  generateClientId,
+  applyTenantBranding,
+} from "./config.js";
+
+// Populate brand strings (title, header brand-mark, sidebar mark,
+// sign-in hint, client-ID placeholder) from TENANT before anything else runs.
+applyTenantBranding();
 
 // authDomain matches the hosting domain so the redirect handler is same-origin.
 // The .web.app/__/auth/handler URI was added to the Firebase-managed OAuth
 // client (ID prefix 721603594101-ubl0c0nq0o61diurf43bkuri1nkmf95c) in Cloud
 // Console on 2026-05-08. Same-origin auth handler sidesteps the third-party-
 // cookie blocking that otherwise breaks the redirect→app session handoff.
-const firebaseConfig = {
-  apiKey: "AIzaSyBQj50m9HeEBDZ1b2eklTQEhVD63hzDCBM",
-  authDomain: "admin-automation-74110.web.app",
-  projectId: "admin-automation-74110",
-  storageBucket: "admin-automation-74110.firebasestorage.app",
-  messagingSenderId: "721603594101",
-  appId: "1:721603594101:web:bc4c79f1484f11540c753c",
-};
+const firebaseConfig = TENANT.firebase;
 
-const ALLOWED_DOMAIN = "thrivegso.com";
+const ALLOWED_DOMAIN = TENANT.staffDomain;
 
 // ----- Program: client levels, probation, leadership roles -----
 //
@@ -361,7 +365,7 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  // Staff path: enforce @thrivegso.com domain. Clients never reach this branch
+  // Staff path: enforce @{TENANT.staffDomain} domain. Clients never reach this branch
   // because their custom-token sign-in carries no email.
   const email = (user.email || "").toLowerCase();
   if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) {
@@ -574,19 +578,13 @@ function escapeHtml(s) {
     .replaceAll("'", "&#39;");
 }
 
-// ----- Client master + ID generator (smoke test for the new clients/ collection) -----
+// ----- Client master record -----
 //
-// clientId format is GSO-NNNNN with NNNNN as a 5-digit random number, not
-// sequential. Decision recorded in the plan section 12.2: random reduces
-// the risk of clients typing one digit off and landing on another client's
-// account once self-service login ships.
-
-function generateClientId() {
-  const buf = new Uint32Array(1);
-  crypto.getRandomValues(buf);
-  const n = buf[0] % 100000;
-  return `GSO-${String(n).padStart(5, "0")}`;
-}
+// clientId format is {PREFIX}-{N digits}, random not sequential. Decision
+// recorded in the plan section 12.2: random reduces the risk of clients
+// typing one digit off and landing on another client's account once
+// self-service login ships. Format constants + generateClientId() live in
+// config.js so they stay in sync across app, Functions, and rules.
 
 // Saves the full intake bundle in a single Firestore transaction. Two
 // modes, dispatched by `opts.existingClientId`:
@@ -900,7 +898,7 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
 
 function isCurrentUserAdmin() {
   return currentUserRole === "admin"
-    || (auth.currentUser?.email || "").toLowerCase() === "daniel@thrivegso.com";
+    || isAdminEmail(auth.currentUser?.email);
 }
 
 let auditEntries = [];   // [{ id, data }]
@@ -1380,7 +1378,7 @@ if (intakeForm) {
       const expDateStr = fd.get("odh206ExpirationDate");
       odh206Data = {
         disclosingParty: trimOrNull(fd.get("odh206DisclosingParty")),
-        receivingParty: trimOrNull(fd.get("odh206ReceivingParty")) || "Good Samaritan Outreach",
+        receivingParty: trimOrNull(fd.get("odh206ReceivingParty")) || TENANT.orgName,
         purpose: trimOrNull(fd.get("odh206Purpose")),
         expirationDate: expDateStr ? Timestamp.fromDate(new Date(expDateStr + "T00:00:00")) : null,
         expirationEvent: trimOrNull(fd.get("odh206ExpirationEvent")),
@@ -2148,62 +2146,9 @@ if (sigStaffClearBtn) sigStaffClearBtn.addEventListener("click", () => sigStaffP
 // ----- Consent modal: reusable popup that displays the full text of a
 // consent form and resolves with the client's accept/deny decision. -----
 
-const PHOTO_VIDEO_CONSENT_TEXT = `Photo / Video Release Form
+const PHOTO_VIDEO_CONSENT_TEXT = TENANT.photoVideoConsentText;
 
-I hereby authorize Good Samaritan Outreach and those acting pursuant to its authority to:
-
-(i) record my likeness and/or voice on a video, audio, photographic, digital, electronic, or any other medium;
-
-(ii) use my name and biographical material in connection with such recording; and
-
-(iii) use, reproduce, exhibit, and/or distribute my name, biographical material, and recordings in any medium (e.g. print publications, video, internet, etc.) for promotional, advertising, educational, and/or other lawful purposes.
-
-I release and waive any claims or rights of compensation or ownership regarding such uses and understand that all such recordings shall remain the property of Good Samaritan Outreach.
-
-I certify that I am 18 years of age or older or that my parent / guardian has signed below.`;
-
-const ODH206_TEXT = `OKLAHOMA STANDARD AUTHORIZATION TO USE OR SHARE PROTECTED HEALTH INFORMATION (PHI)
-
-Receiving party:
-  Good Samaritan Outreach
-  20 E. Cherokee Ave, McAlester, OK 74501
-
-Information that may be shared (selectable on this form):
-  • Psychotherapy Notes — if selected, NO other categories may be on the same authorization. A separate authorization is required for any additional information.
-  • Entire Medical Record
-  • Billing Information
-  • Mental Health Records
-  • Substance Abuse Records
-
-Disclosure purposes (selectable on this form):
-  • Insurance
-  • Continued Treatment
-  • Legal
-  • At my or my representative's request
-
-By voluntarily signing this authorization, I understand that:
-
-  • I authorize the use or disclosure of my PHI as described above for the purpose(s) listed.
-
-  • I have the right to withdraw permission for the release of my information. I can revoke this authorization at any time. Revocation must be made in writing to the person/organization disclosing the information and will not affect information that has already been used or disclosed.
-
-  • I have the right to receive a copy of this authorization.
-
-  • Unless the purpose of this authorization is to determine payment of a claim for benefits, signing this authorization will not affect my eligibility for benefits, treatment, enrollment, or payment of claims.
-
-  • My medical information may indicate that I have a communicable and/or non-communicable disease (including, but not limited to, hepatitis, syphilis, gonorrhea, HIV / AIDS) and/or that I have or have been treated for psychological / psychiatric conditions or substance abuse.
-
-  • I may change this authorization at any time by writing to the person/organization disclosing my PHI.
-
-  • I cannot restrict information that may have already been shared based on this authorization.
-
-  • Information used or disclosed pursuant to this authorization may be subject to redisclosure by the recipient and may no longer be protected by HIPAA.
-
-Unless revoked or otherwise indicated, this authorization expires one year from the date of signature, or upon the occurrence of the event entered on this form.
-
-Oklahoma State Department of Health, Community and Family Health Services / Administration. HIPAA Document — retained for a minimum of 6 years.
-
-ODH 206 (August 2014)`;
+const ODH206_TEXT = TENANT.odh206FormText;
 
 const consentModal = document.getElementById("consent-modal");
 const consentModalTitle = document.getElementById("consent-modal-title");
@@ -2790,6 +2735,12 @@ function hideRevealedMedical() {
     dl.hidden = true;
     dl.innerHTML = "";
   }
+  const medsPanel = document.getElementById("client-medications-panel");
+  if (medsPanel) {
+    medsPanel.hidden = true;
+    const list = document.getElementById("client-medications-list");
+    if (list) list.innerHTML = "";
+  }
   const btn = document.getElementById("client-reveal-medical");
   const status = document.getElementById("client-reveal-medical-status");
   if (btn) {
@@ -2870,6 +2821,12 @@ if (revealMedicalBtn) {
       }
       renderMedicalSensitive(snap.data());
       dl.hidden = false;
+      const medsPanel = document.getElementById("client-medications-panel");
+      if (medsPanel) {
+        medsPanel.hidden = false;
+        // Fire and forget — list renders its own loading/error state.
+        loadClientMedications(currentDetailClientId);
+      }
       revealMedicalBtn.disabled = false;
       revealMedicalBtn.textContent = "Hide medical record";
       status.textContent = "Revealed — click button to hide.";
@@ -2884,6 +2841,330 @@ if (revealMedicalBtn) {
     }
   });
 }
+
+// ---------- Client medications (post-intake add / discontinue) ----------
+//
+// The /medications collection is written per-medication. Intake-time meds carry
+// intakeId; post-intake adds carry intakeId=null. "Active" = no endDate set.
+// Discontinuing sets endDate (+ endedBy/endReason) rather than deleting, so the
+// medication still appears in the printed Client History Report's "Discontinued"
+// section (app.js ~8097-8107). Display is gated behind the medical-reveal flow
+// because medications are PHI even though the docs themselves live outside
+// /sensitive (rules only require staff-role to read).
+
+async function loadClientMedications(cid) {
+  const listEl = document.getElementById("client-medications-list");
+  if (!listEl) return;
+  listEl.innerHTML = `<p class="note">Loading…</p>`;
+  try {
+    const snap = await getDocs(query(
+      collection(db, "medications"),
+      where("clientId", "==", cid),
+    ));
+    const rows = snap.docs.map((d) => ({ id: d.id, data: d.data() }));
+    const active = rows.filter((m) => !m.data.endDate);
+    const past = rows.filter((m) => m.data.endDate);
+    // Sort newest first by startDate (fall back to docId if startDate missing).
+    active.sort((a, b) => tsMs(b.data.startDate) - tsMs(a.data.startDate));
+    past.sort((a, b) => tsMs(b.data.endDate) - tsMs(a.data.endDate));
+    listEl.innerHTML = renderClientMedicationsHtml(active, past);
+  } catch (err) {
+    listEl.innerHTML = `<p class="error">Could not load medications: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function renderClientMedicationsHtml(active, past) {
+  const activeHtml = active.length
+    ? active.map(({ id, data }) => {
+        const reason = data.customReason || data.reasonForMedication || "";
+        const dose = [data.dosage, data.frequency].filter(Boolean).join(" · ");
+        const meta = [];
+        if (dose) meta.push(escapeHtml(dose));
+        if (reason) meta.push(`for ${escapeHtml(reason)}`);
+        if (data.startDate) meta.push(`started ${escapeHtml(fmtDate(data.startDate) || "")}`);
+        const side = data.sideEffects
+          ? `<div class="muted" style="font-size: 0.85rem;">Side effects: ${escapeHtml(data.sideEffects)}</div>`
+          : "";
+        return `
+          <div class="status-update-row" data-med-id="${escapeHtml(id)}">
+            <div class="status-update-row-header">
+              <strong>${escapeHtml(data.medicationName || "(medication)")}</strong>
+              <button type="button" class="ghost ssn-reveal-btn client-med-discontinue"
+                data-med-id="${escapeHtml(id)}"
+                data-med-name="${escapeHtml(data.medicationName || "")}">Discontinue</button>
+            </div>
+            ${meta.length ? `<div class="meta">${meta.join(" · ")}</div>` : ""}
+            ${side}
+          </div>
+        `;
+      }).join("")
+    : `<p class="note">No active medications.</p>`;
+  const pastHtml = past.length
+    ? `<details style="margin-top: 0.6rem;"><summary>Discontinued (${past.length})</summary>${
+        past.map(({ data }) => {
+          const dose = [data.dosage, data.frequency].filter(Boolean).join(" · ");
+          const range = `${escapeHtml(fmtDate(data.startDate) || "?")} → ${escapeHtml(fmtDate(data.endDate) || "?")}`;
+          const reason = data.endReason ? ` — ${escapeHtml(data.endReason)}` : "";
+          return `<div class="meta">${escapeHtml(data.medicationName || "(med)")} · ${range}${dose ? ` · ${escapeHtml(dose)}` : ""}${reason}</div>`;
+        }).join("")
+      }</details>`
+    : "";
+  return activeHtml + pastHtml;
+}
+
+// ----- Add-medication modal (post-intake) -----
+(function bindClientMedAddModal() {
+  const openBtn = document.getElementById("client-med-add-btn");
+  const modal = document.getElementById("client-med-add-modal");
+  if (!openBtn || !modal) return;
+  const backdrop = document.getElementById("client-med-add-modal-backdrop");
+  const cancelBtn = document.getElementById("client-med-add-cancel");
+  const confirmBtn = document.getElementById("client-med-add-confirm");
+  const searchInput = document.getElementById("client-med-search");
+  const dropdown = document.getElementById("client-med-search-dropdown");
+  const selectedWrap = document.getElementById("client-med-selected");
+  const selectedName = document.getElementById("client-med-selected-name");
+  const selectedReasons = document.getElementById("client-med-selected-reasons");
+  const dosageInput = document.getElementById("client-med-dosage");
+  const frequencyInput = document.getElementById("client-med-frequency");
+  const customReasonInput = document.getElementById("client-med-custom-reason");
+  const startDateInput = document.getElementById("client-med-start-date");
+  const clearBtn = document.getElementById("client-med-clear");
+  const errEl = document.getElementById("client-med-add-error");
+  const progressEl = document.getElementById("client-med-add-progress");
+
+  // Local selection state — independent of the intake form's selectedMedications array.
+  let picked = null; // { catalogId, name, reasonsForMedication, sideEffects }
+
+  function showError(msg) {
+    if (!errEl) return;
+    errEl.textContent = msg;
+    errEl.hidden = false;
+  }
+  function clearStatus() {
+    if (errEl) errEl.hidden = true;
+    if (progressEl) progressEl.hidden = true;
+  }
+  function resetSelection() {
+    picked = null;
+    if (selectedWrap) selectedWrap.hidden = true;
+    if (selectedName) selectedName.textContent = "";
+    if (selectedReasons) selectedReasons.textContent = "";
+    if (dosageInput) dosageInput.value = "";
+    if (frequencyInput) frequencyInput.value = "";
+    if (customReasonInput) customReasonInput.value = "";
+    if (startDateInput) startDateInput.value = todayLocalDate();
+    if (confirmBtn) confirmBtn.disabled = true;
+    if (searchInput) {
+      searchInput.value = "";
+      searchInput.disabled = false;
+    }
+    if (dropdown) {
+      dropdown.hidden = true;
+      dropdown.innerHTML = "";
+    }
+  }
+  function open() {
+    resetSelection();
+    clearStatus();
+    modal.hidden = false;
+    setTimeout(() => searchInput?.focus(), 0);
+    loadMedicationCatalog().catch(() => {});
+  }
+  function close() {
+    modal.hidden = true;
+  }
+
+  openBtn.addEventListener("click", open);
+  cancelBtn?.addEventListener("click", close);
+  backdrop?.addEventListener("click", close);
+  clearBtn?.addEventListener("click", () => {
+    resetSelection();
+    setTimeout(() => searchInput?.focus(), 0);
+  });
+
+  if (searchInput) {
+    searchInput.addEventListener("focus", async () => {
+      await loadMedicationCatalog().catch(() => {});
+      if (searchInput.value && !picked) {
+        renderDropdown(filterMedications(searchInput.value));
+      }
+    });
+    searchInput.addEventListener("input", async () => {
+      if (!medicationCatalog) await loadMedicationCatalog().catch(() => {});
+      renderDropdown(filterMedications(searchInput.value));
+    });
+    searchInput.addEventListener("blur", () => {
+      setTimeout(() => { if (dropdown) dropdown.hidden = true; }, 150);
+    });
+  }
+
+  function renderDropdown(matches) {
+    if (!dropdown) return;
+    if (!matches || matches.length === 0) {
+      dropdown.hidden = true;
+      dropdown.innerHTML = "";
+      return;
+    }
+    dropdown.innerHTML = matches.map((m) => `
+      <div class="picker-item" data-id="${escapeHtml(m.id)}">
+        <strong>${escapeHtml(m.name)}</strong>
+        <div class="muted">${escapeHtml(m.reasonsForMedication)}</div>
+      </div>
+    `).join("");
+    dropdown.hidden = false;
+  }
+
+  dropdown?.addEventListener("mousedown", (e) => {
+    const item = e.target.closest(".picker-item");
+    if (!item) return;
+    const id = item.dataset.id;
+    const med = medicationCatalog?.find((m) => m.id === id);
+    if (!med) return;
+    picked = {
+      catalogId: med.id,
+      name: med.name,
+      reasonsForMedication: med.reasonsForMedication,
+      sideEffects: med.sideEffects,
+    };
+    if (searchInput) {
+      searchInput.value = med.name;
+      searchInput.disabled = true;
+    }
+    if (selectedName) selectedName.textContent = med.name;
+    if (selectedReasons) selectedReasons.textContent = med.reasonsForMedication || "";
+    if (selectedWrap) selectedWrap.hidden = false;
+    if (confirmBtn) confirmBtn.disabled = false;
+    dropdown.hidden = true;
+  });
+
+  confirmBtn?.addEventListener("click", async () => {
+    const cid = currentDetailClientId;
+    if (!cid) { close(); return; }
+    if (!picked) {
+      showError("Pick a medication from the catalog first.");
+      return;
+    }
+    clearStatus();
+    confirmBtn.disabled = true;
+    if (progressEl) {
+      progressEl.textContent = "Saving…";
+      progressEl.hidden = false;
+    }
+    try {
+      const startStr = startDateInput?.value || "";
+      const startTs = startStr
+        ? Timestamp.fromDate(new Date(startStr + "T00:00:00"))
+        : serverTimestamp();
+      const data = {
+        clientId: cid,
+        intakeId: null,
+        catalogId: picked.catalogId,
+        medicationName: picked.name,
+        reasonForMedication: picked.reasonsForMedication || "",
+        sideEffects: picked.sideEffects || "",
+        customReason: (customReasonInput?.value || "").trim() || null,
+        dosage: (dosageInput?.value || "").trim() || null,
+        frequency: (frequencyInput?.value || "").trim() || null,
+        startDate: startTs,
+        endDate: null,
+        enteredBy: auth.currentUser?.email || "",
+        enteredAt: serverTimestamp(),
+      };
+      const ref = await addDoc(collection(db, "medications"), data);
+      await logAccess(AUDIT_ACTIONS.CREATE, "medications", ref.id, {
+        clientId: cid, surface: "clients-detail", postIntake: true,
+      });
+      close();
+      await loadClientMedications(cid);
+    } catch (err) {
+      if (progressEl) progressEl.hidden = true;
+      showError(err.message || "Save failed.");
+      confirmBtn.disabled = false;
+    }
+  });
+})();
+
+// ----- Discontinue-medication modal -----
+(function bindClientMedStopModal() {
+  const modal = document.getElementById("client-med-stop-modal");
+  if (!modal) return;
+  const backdrop = document.getElementById("client-med-stop-modal-backdrop");
+  const cancelBtn = document.getElementById("client-med-stop-cancel");
+  const confirmBtn = document.getElementById("client-med-stop-confirm");
+  const nameEl = document.getElementById("client-med-stop-name");
+  const dateInput = document.getElementById("client-med-stop-date");
+  const reasonInput = document.getElementById("client-med-stop-reason");
+  const errEl = document.getElementById("client-med-stop-error");
+  const progressEl = document.getElementById("client-med-stop-progress");
+
+  let targetMedId = null;
+
+  function showError(msg) {
+    if (!errEl) return;
+    errEl.textContent = msg;
+    errEl.hidden = false;
+  }
+  function open(medId, medName) {
+    targetMedId = medId;
+    if (nameEl) nameEl.textContent = medName || "(medication)";
+    if (dateInput) dateInput.value = todayLocalDate();
+    if (reasonInput) reasonInput.value = "";
+    if (errEl) errEl.hidden = true;
+    if (progressEl) progressEl.hidden = true;
+    if (confirmBtn) confirmBtn.disabled = false;
+    modal.hidden = false;
+  }
+  function close() { modal.hidden = true; targetMedId = null; }
+
+  cancelBtn?.addEventListener("click", close);
+  backdrop?.addEventListener("click", close);
+
+  // Delegate clicks on the active-medications list to the discontinue modal.
+  const listEl = document.getElementById("client-medications-list");
+  if (listEl) {
+    listEl.addEventListener("click", (e) => {
+      const btn = e.target.closest(".client-med-discontinue");
+      if (!btn) return;
+      open(btn.dataset.medId, btn.dataset.medName);
+    });
+  }
+
+  confirmBtn?.addEventListener("click", async () => {
+    if (!targetMedId) { close(); return; }
+    const cid = currentDetailClientId;
+    if (!cid) { close(); return; }
+    const dateStr = dateInput?.value || "";
+    const dateValue = dateStr ? new Date(dateStr + "T00:00:00") : null;
+    if (!dateValue || isNaN(dateValue)) {
+      showError("Pick a valid end date.");
+      return;
+    }
+    confirmBtn.disabled = true;
+    if (errEl) errEl.hidden = true;
+    if (progressEl) {
+      progressEl.textContent = "Saving…";
+      progressEl.hidden = false;
+    }
+    try {
+      await updateDoc(doc(db, "medications", targetMedId), {
+        endDate: Timestamp.fromDate(dateValue),
+        endReason: (reasonInput?.value || "").trim() || null,
+        endedBy: auth.currentUser?.email || "",
+        endedAt: serverTimestamp(),
+      });
+      await logAccess(AUDIT_ACTIONS.UPDATE, "medications", targetMedId, {
+        clientId: cid, surface: "clients-detail", discontinued: true,
+      });
+      close();
+      await loadClientMedications(cid);
+    } catch (err) {
+      if (progressEl) progressEl.hidden = true;
+      showError(err.message || "Save failed.");
+      confirmBtn.disabled = false;
+    }
+  });
+})();
 
 // ---------- Intake history ----------
 
@@ -2966,7 +3247,7 @@ async function loadClientOdh206(cid) {
       return `
         <div class="odh206-row">
           <div class="odh206-row-header">
-            <strong>${escapeHtml(data.disclosingParty || "(disclosing party not recorded)")} &rarr; ${escapeHtml(data.receivingParty || "Good Samaritan Outreach")}</strong>
+            <strong>${escapeHtml(data.disclosingParty || "(disclosing party not recorded)")} &rarr; ${escapeHtml(data.receivingParty || TENANT.orgName)}</strong>
             <span class="meta">${escapeHtml(fmtTimestamp(data.signedAt) || "")}</span>
           </div>
           <dl class="kv-grid">
@@ -3005,7 +3286,7 @@ async function loadClientOdh206(cid) {
 // the positions are correct. Don't rename without re-inspecting the
 // template.
 
-const GSO_RECEIVING_PARTY = "Good Samaritan Outreach / 20 E. Cherokee Ave; McAlester OK 74501";
+const GSO_RECEIVING_PARTY = TENANT.orgNameWithAddress;
 
 const ODH206_FIELDS = {
   patientName:        "OKLAHOMA STANDARD AUTHORIZATION TO USE OR SHARE PROTECTED HEALTH INFORMATION PHI",
@@ -3186,7 +3467,7 @@ async function handleOdh206Generate() {
     }
     expirationDate = expiryDateStr;
   } else {
-    expirationEvent = "Upon leaving Good Samaritan Outreach Program";
+    expirationEvent = TENANT.expirationOnExitEvent;
   }
 
   confirmBtn.disabled = true;
@@ -4366,7 +4647,7 @@ async function loadClientScannedDocs(cid) {
 
 function renderScannedDocsList(el, cid, rows, staffMode) {
   const isAdminUser = staffMode && (currentUserRole === "admin"
-    || (auth.currentUser?.email || "").toLowerCase() === "daniel@thrivegso.com");
+    || isAdminEmail(auth.currentUser?.email));
   if (!rows.length) {
     el.innerHTML = `<p class="note">No scanned documents on file yet.</p>`;
     return;
@@ -9321,7 +9602,7 @@ async function submitCheckInOut({ clientId, clientName, direction, reason = null
   if (!auth.currentUser) throw new Error("Not signed in.");
   if (!["out", "in"].includes(direction)) throw new Error("Invalid direction.");
   if (direction === "out" && !CHECKINOUT_REASONS[reason]) throw new Error("Invalid reason.");
-  if (!/^GSO-\d{5}$/.test(clientId)) throw new Error("Invalid client ID.");
+  if (!CLIENT_ID_RE.test(clientId)) throw new Error("Invalid client ID.");
 
   // Branch on the cached role: client self-submit sets submittedBy to their
   // own clientId (matches the rule); staff backfill sets it to the staff
@@ -9360,7 +9641,7 @@ async function submitCheckInOut({ clientId, clientName, direction, reason = null
 // per-event docs are the client-app source of truth and feed reports.
 async function submitShowerLog({ clientId, clientName }) {
   if (!auth.currentUser) throw new Error("Not signed in.");
-  if (!/^GSO-\d{5}$/.test(clientId)) throw new Error("Invalid client ID.");
+  if (!CLIENT_ID_RE.test(clientId)) throw new Error("Invalid client ID.");
   const now = new Date();
   const ref = await addDoc(collection(db, "showerLog"), {
     clientId,
@@ -9378,7 +9659,7 @@ async function submitShowerLog({ clientId, clientName }) {
 
 async function submitMealLog({ clientId, clientName, meal }) {
   if (!auth.currentUser) throw new Error("Not signed in.");
-  if (!/^GSO-\d{5}$/.test(clientId)) throw new Error("Invalid client ID.");
+  if (!CLIENT_ID_RE.test(clientId)) throw new Error("Invalid client ID.");
   if (!["breakfast", "lunch", "dinner"].includes(meal)) {
     throw new Error("Invalid meal.");
   }
@@ -9608,10 +9889,16 @@ let todayShowers = [];
   const errEl = document.getElementById("client-signin-error");
   const btn = document.getElementById("client-signin-btn");
 
-  // Auto-uppercase + auto-prefix "GSO-" so clients can just type 5 digits.
+  // Auto-uppercase + auto-prefix so clients can just type the digits portion.
+  const cidPrefix = TENANT.clientIdPrefix;
+  const cidDigits = TENANT.clientIdDigits;
+  const partialDigitsRe = new RegExp(`^\\d{1,${cidDigits}}$`);
+  const fullDigitsRe = new RegExp(`^\\d{${cidDigits}}$`);
+  const exampleId = `${cidPrefix}-${"1".repeat(cidDigits)}`;
+
   idInput.addEventListener("input", () => {
     let v = idInput.value.toUpperCase().replace(/\s+/g, "");
-    if (/^\d{1,5}$/.test(v)) v = `GSO-${v}`;
+    if (partialDigitsRe.test(v)) v = `${cidPrefix}-${v}`;
     idInput.value = v;
   });
 
@@ -9619,10 +9906,10 @@ let todayShowers = [];
     e.preventDefault();
     errEl.hidden = true;
     let clientId = idInput.value.trim().toUpperCase();
-    if (/^\d{5}$/.test(clientId)) clientId = `GSO-${clientId}`;
+    if (fullDigitsRe.test(clientId)) clientId = `${cidPrefix}-${clientId}`;
     const pin = pinInput.value.trim();
-    if (!/^GSO-\d{5}$/.test(clientId)) {
-      errEl.textContent = "Client ID must look like GSO-12345.";
+    if (!CLIENT_ID_RE.test(clientId)) {
+      errEl.textContent = `Client ID must look like ${exampleId}.`;
       errEl.hidden = false;
       return;
     }

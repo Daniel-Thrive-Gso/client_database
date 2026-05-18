@@ -28,15 +28,13 @@ import {
   timingSafeEqual,
 } from "crypto";
 import { promisify } from "util";
+import { STAFF_DOMAIN, REGION, CLIENT_ID_RE } from "./config.mjs";
 
 const scrypt = promisify(_scrypt);
 
 initializeApp();
 const auth = getAuth();
 const db = getFirestore();
-
-const STAFF_DOMAIN = "thrivegso.com";
-const REGION = "us-central1";
 
 const PIN_LENGTH = 6;
 const SCRYPT_N = 16384;
@@ -46,7 +44,6 @@ const LOCKOUT_THRESHOLD = 5;
 const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
 
-const CLIENT_ID_RE = /^GSO-\d{5}$/;
 const PIN_RE = new RegExp(`^\\d{${PIN_LENGTH}}$`);
 
 // ------------------------------ helpers ------------------------------
