@@ -48,7 +48,7 @@ export const TENANT = {
   orgName: "Good Samaritan Outreach",
   orgShort: "GSO",                 // top-left brand mark, larger
   orgTagline: "THRIVE",            // top-left brand mark, smaller, spaced
-  pageTitle: "GSO Staff — Self-Evaluation Tracker (Prototype)",
+  pageTitle: "GSO Thrive Program",
 
   // Full org name with mailing address — used as the default Receiving Party
   // on the ODH 206 form and anywhere a complete legal identifier is needed.

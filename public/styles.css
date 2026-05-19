@@ -2448,3 +2448,138 @@ button.ghost:hover { background: rgba(255,182,0,0.08); color: var(--accent); }
   .sidebar-user { margin-top: 0; border-top: 0; }
   .main-col { padding: 1.25rem 1rem 2rem; max-width: 100%; }
 }
+
+/* ───────────────── PWA + mobile polish ─────────────────
+   Keeps the overscroll area dark on iOS, kills the default tap-highlight
+   flash, prevents bounce on the body, and makes form inputs at least 16px
+   so iOS Safari doesn't auto-zoom on focus. */
+html {
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  overscroll-behavior-y: contain;
+  -webkit-tap-highlight-color: rgba(255, 182, 0, 0.15);
+}
+@supports (padding: env(safe-area-inset-bottom)) {
+  /* When installed as a PWA on iOS, the bottom home-indicator area can hide
+     the last buttons. Add safe-area padding to the client app shell and
+     sign-in card so they breathe past the gesture bar. */
+  #client-app-section {
+    padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+  }
+  #signin-section {
+    margin-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+  header {
+    padding-top: calc(1rem + env(safe-area-inset-top));
+    padding-left: calc(1.5rem + env(safe-area-inset-left));
+    padding-right: calc(1.5rem + env(safe-area-inset-right));
+  }
+}
+/* Prevent iOS auto-zoom on focus: any input that's smaller than 16px would
+   trigger a zoom-in. The sign-in form inputs use `font: inherit`, so the body
+   font size must stay ≥16px (already true via system-ui defaults). Belt &
+   suspenders for the named inputs below. */
+.signin-client input,
+.client-section input,
+.client-section textarea,
+.client-section select {
+  font-size: max(16px, 1rem);
+}
+
+/* Phone-width tightening for client-facing screens. Targets the sign-in
+   card and the standalone client app — staff layouts already collapse via
+   the 880px breakpoint above. */
+@media (max-width: 480px) {
+  main { padding: 0 0.75rem; margin: 1rem auto; }
+
+  #signin-section {
+    padding: 1.25rem 1rem;
+    margin: 1rem auto;
+    border-radius: 10px;
+  }
+  #signin-section h2 { font-size: 1.25rem; }
+  .signin-client form { max-width: 100%; }
+  .signin-staff button,
+  .signin-client button[type="submit"] {
+    width: 100%;
+    padding: 0.85rem 1rem;
+    font-size: 1rem;
+    min-height: 48px;
+  }
+
+  #client-app-section {
+    padding: 0.6rem 0.7rem 2rem;
+    gap: 0.75rem;
+  }
+  .client-greeting h2 { font-size: 1.65rem; }
+  .client-section { padding: 0.85rem 0.85rem; }
+  .client-section h3 { font-size: 0.9rem; }
+
+  /* Three meal buttons stay in a row, but tighten font + padding so
+     "Breakfast" doesn't truncate on a 360-px-wide iPhone SE. */
+  .client-meal-row .big-btn {
+    padding: 0.95rem 0.25rem;
+    font-size: 0.95rem;
+    min-height: 60px;
+  }
+  .client-actions .big-btn {
+    padding: 1rem 0.5rem;
+    font-size: 1rem;
+  }
+
+  /* Modal (consent + others) at narrow widths: full-bleed-ish card with
+     stacked footer buttons so they're not cramped. */
+  .modal { padding: 0.5rem; }
+  .modal-card {
+    padding: 1rem 1rem;
+    max-height: calc(100vh - 1rem);
+    border-radius: 10px;
+  }
+  .modal-body { padding: 0.7rem 0.8rem; font-size: 0.9rem; }
+  .modal-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+  .modal-footer button {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  /* Schedule week-pick row wraps cleanly under "This week"/"Next week"
+     buttons on narrow screens. */
+  .schedule-week-pick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .schedule-week-pick label { flex: 1 1 100%; }
+
+  /* Form rows inside client-app sections (Report a change, Ask staff) —
+     stack label + control vertically with a touch more breathing room. */
+  #client-app-section .form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 0.6rem;
+  }
+  #client-app-section select,
+  #client-app-section input[type="date"],
+  #client-app-section textarea {
+    width: 100%;
+    padding: 0.65rem 0.7rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--text);
+  }
+}
+
+/* In standalone (installed PWA) mode, the browser chrome is gone — pull the
+   sign-in card up so it doesn't sit awkwardly low on the screen. */
+@media all and (display-mode: standalone) {
+  body { background: var(--bg); }
+  #signin-section { margin-top: 1rem; }
+}
