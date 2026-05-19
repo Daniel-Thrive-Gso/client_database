@@ -4602,7 +4602,7 @@ async function loadClientConsents(cid) {
 
 const SCANNED_DOC_TYPES = [
   "stateID", "ssc", "birthCert", "transcript", "diploma", "insurance", "library",
-  "cdib", "panelResults", "significantEvents",
+  "cdib", "vaCard", "dd214", "programCert", "panelResults", "significantEvents",
 ];
 const SCANNED_DOC_LABELS = {
   stateID:           "State ID / Driver's License",
@@ -4613,6 +4613,9 @@ const SCANNED_DOC_LABELS = {
   insurance:         "Medical Insurance Card",
   library:           "Library Card",
   cdib:              "CDIB",
+  vaCard:            "VA Card",
+  dd214:             "DD-214",
+  programCert:       "Program Certifications",
   panelResults:      "Panel Results",
   significantEvents: "Significant Events",
 };
@@ -5441,6 +5444,8 @@ const HOUSING_LABELS = {
   familyFriends: "Moved in with family or friends",
   transitionalHousing: "Moved to transitional or temporary housing",
   shelterOrUnfit: "Moved to a shelter or place unfit for humans",
+  drugRehab: "Moved to drug rehabilitation",
+  mentalHealthInpatient: "Moved to mental health inpatient",
   jail: "Client went to jail",
   deceased: "Client died",
   refused: "Client refused to provide",
@@ -5903,6 +5908,7 @@ const STATUS_UPDATE_TYPE_LABELS = {
   startedSchool: "Started college / trade school",
   sobrietyMilestone: "Sobriety milestone",
   programCompletion: "Completed a program",
+  lostEmployment: "Lost job",
   // Reviews — paragraph-form notes kept as history; latest mirrors to
   // master.reviews.{updateType}. Panel Results is the monthly progress
   // review that drives the client's next steps in the program.
@@ -9969,6 +9975,7 @@ async function initClientApp(user, clientId) {
   setClientScheduleWeek(clientScheduleWeek);
   bindClientScheduleControls();
   bindClientInfoUpdateForm();
+  bindClientStaffRequestForm();
   startClientSubmissionsListener(clientId);
   startClientAppDocsListener(clientId);
 }
@@ -10212,6 +10219,22 @@ async function onClientMealTap(meal) {
 const CLIENT_SUB_TYPES = {
   weeklySchedule: "Weekly schedule",
   infoUpdate: "Info update",
+  staffRequest: "Help request",
+};
+
+// Subjects clients can pick when filing a "help request" for staff.
+// Stored keys are stable; labels can be reworded without breaking history.
+const REQUEST_SUBJECT_LABELS = {
+  school:             "School",
+  veteransBenefits:   "Veterans Benefits",
+  socialSecurity:     "Social Security",
+  employment:         "Employment",
+  identificationDocs: "Identification Documents",
+  housing:            "Housing",
+  legal:              "Legal",
+  medical:            "Medical",
+  counseling:         "Counseling",
+  other:              "Other",
 };
 
 // Update types a client may self-report. Mirrors STATUS_UPDATE_TYPE_LABELS but
@@ -10231,7 +10254,7 @@ const CLIENT_INFO_UPDATE_TYPES = [
   ]},
   { group: "Milestones", types: [
     "employment", "housing", "bankAccount", "phone", "startedSchool",
-    "sobrietyMilestone", "programCompletion",
+    "sobrietyMilestone", "programCompletion", "lostEmployment",
   ]},
 ];
 
@@ -10498,6 +10521,82 @@ function bindClientInfoUpdateForm() {
   });
 }
 
+// ----- Client app: staff help request submission -----
+//
+// Same `pendingClientSubmissions` pattern as the weekly schedule / info
+// update, different `submissionType: "staffRequest"`. Carries a subject
+// (one of REQUEST_SUBJECT_LABELS keys) and a free-text description. Staff
+// approval only flips status — nothing mirrors to the canonical client
+// record. Approved requests get a Print button in the staff inbox.
+
+let clientStaffRequestBound = false;
+function bindClientStaffRequestForm() {
+  if (clientStaffRequestBound) return;
+  const sel = document.getElementById("client-staff-request-subject");
+  const descEl = document.getElementById("client-staff-request-description");
+  const submitBtn = document.getElementById("client-staff-request-submit-btn");
+  const msg = document.getElementById("client-staff-request-msg");
+  if (!sel || !descEl || !submitBtn || !msg) return;
+  clientStaffRequestBound = true;
+
+  sel.innerHTML = `<option value="">— pick one —</option>` + Object.entries(REQUEST_SUBJECT_LABELS)
+    .map(([k, label]) => `<option value="${escapeHtml(k)}">${escapeHtml(label)}</option>`)
+    .join("");
+
+  submitBtn.addEventListener("click", async () => {
+    msg.hidden = true;
+    msg.classList.remove("ok", "error");
+    if (!currentUserClientId) return;
+    const subject = sel.value;
+    const description = (descEl.value || "").trim();
+    if (!subject || !REQUEST_SUBJECT_LABELS[subject]) {
+      msg.textContent = "Pick what you need help with.";
+      msg.classList.add("error"); msg.hidden = false;
+      return;
+    }
+    if (!description) {
+      msg.textContent = "Describe what you're asking for.";
+      msg.classList.add("error"); msg.hidden = false;
+      return;
+    }
+    if (description.length > 4000) {
+      msg.textContent = "Description is too long (4000 character limit).";
+      msg.classList.add("error"); msg.hidden = false;
+      return;
+    }
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Submitting…";
+    try {
+      const ref = await addDoc(collection(db, "pendingClientSubmissions"), {
+        clientId: currentUserClientId,
+        clientName: currentClientDisplayName(),
+        submissionType: "staffRequest",
+        status: "pending",
+        subject,
+        description,
+        submittedBy: currentUserClientId,
+        submittedAt: serverTimestamp(),
+        reviewedAt: null, reviewedBy: null, reviewNote: null,
+      });
+      await logAccess(AUDIT_ACTIONS.CREATE, "pendingClientSubmission", ref.id, {
+        clientId: currentUserClientId,
+        submissionType: "staffRequest",
+        subject,
+      });
+      msg.textContent = "Submitted. A staff member will review it.";
+      msg.classList.add("ok"); msg.hidden = false;
+      sel.value = "";
+      descEl.value = "";
+    } catch (err) {
+      msg.textContent = `Submit failed: ${err.message || err}`;
+      msg.classList.add("error"); msg.hidden = false;
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Submit request";
+    }
+  });
+}
+
 // ----- Client app: scanned-documents view (read-only) -----
 //
 // Subscribes to clients/{cid}/scannedDocs so a client can pull copies of
@@ -10581,6 +10680,11 @@ function describeSubmission(data) {
     const label = STATUS_UPDATE_TYPE_LABELS[data.updateType] || data.updateType || "(unknown)";
     const when = fmtDate(data.occurredOn) || "—";
     return `${escapeHtml(label)} · ${escapeHtml(when)}`;
+  }
+  if (data.submissionType === "staffRequest") {
+    const subj = REQUEST_SUBJECT_LABELS[data.subject] || data.subject || "(no subject)";
+    const preview = (data.description || "").replace(/\s+/g, " ").slice(0, 80);
+    return `${escapeHtml(subj)}${preview ? ` — ${escapeHtml(preview)}` : ""}`;
   }
   return "";
 }
@@ -10709,7 +10813,9 @@ function renderInbox() {
     const kindLabel = CLIENT_SUB_TYPES[data.submissionType] || data.submissionType;
     const bodyHtml = data.submissionType === "infoUpdate"
       ? renderInfoUpdateBody(data)
-      : renderWeeklyScheduleBody(data);
+      : data.submissionType === "staffRequest"
+        ? renderStaffRequestBody(data)
+        : renderWeeklyScheduleBody(data);
 
     const conflicts = computeSubmissionConflicts(data);
     const conflictsHtml = conflicts.length
@@ -10724,19 +10830,26 @@ function renderInbox() {
 
     const approveLabel = data.submissionType === "infoUpdate"
       ? "Approve &amp; record"
-      : "Approve &amp; copy to schedule";
+      : data.submissionType === "staffRequest"
+        ? "Approve"
+        : "Approve &amp; copy to schedule";
+    const printBtnHtml = data.submissionType === "staffRequest" && data.status === "approved"
+      ? ` <button class="ghost" data-act="print" data-id="${escapeHtml(id)}" type="button">Print request</button>`
+      : "";
     const actionsHtml = data.status === "pending"
       ? `<div class="inbox-row-actions">
            <button class="approve" data-act="approve" data-id="${escapeHtml(id)}" type="button">${approveLabel}</button>
            <button class="reject"  data-act="reject"  data-id="${escapeHtml(id)}" type="button">Reject…</button>
          </div>`
-      : `<div class="inbox-row-actions"><span class="meta">${escapeHtml(data.status)}${reviewedAt ? ` · ${escapeHtml(reviewedAt)} · ${escapeHtml(data.reviewedBy || "")}` : ""}</span></div>`;
+      : `<div class="inbox-row-actions"><span class="meta">${escapeHtml(data.status)}${reviewedAt ? ` · ${escapeHtml(reviewedAt)} · ${escapeHtml(data.reviewedBy || "")}` : ""}</span>${printBtnHtml}</div>`;
 
     const headerSuffix = data.submissionType === "weeklySchedule"
       ? ` · week of ${escapeHtml(data.weekStart || "—")}`
       : data.submissionType === "infoUpdate"
         ? ` · ${escapeHtml(STATUS_UPDATE_TYPE_LABELS[data.updateType] || data.updateType || "info update")}`
-        : "";
+        : data.submissionType === "staffRequest"
+          ? ` · ${escapeHtml(REQUEST_SUBJECT_LABELS[data.subject] || data.subject || "request")}`
+          : "";
 
     return `
       <div class="inbox-row is-${escapeHtml(data.status)}">
@@ -10767,6 +10880,9 @@ function renderInbox() {
       } else if (act === "reject") {
         const note = (window.prompt("Optional note for the client (why rejected). Leave blank to skip.") || "").trim();
         await rejectSubmission(id, note, btn);
+      } else if (act === "print") {
+        const row = inboxRows.find((r) => r.id === id);
+        if (row) printStaffRequest(row.id, row.data);
       }
     });
   });
@@ -10947,6 +11063,19 @@ function renderInfoUpdateBody(data) {
     </div>`;
 }
 
+function renderStaffRequestBody(data) {
+  const subj = REQUEST_SUBJECT_LABELS[data.subject] || data.subject || "(no subject)";
+  const desc = (data.description || "").trim();
+  const descHtml = desc
+    ? `<p style="margin:0.3rem 0; white-space: pre-wrap;">${escapeHtml(desc)}</p>`
+    : `<p class="note" style="margin:0.3rem 0;">(no description)</p>`;
+  return `
+    <div class="inbox-events">
+      <p style="margin:0.2rem 0;"><strong>Subject:</strong> ${escapeHtml(subj)}</p>
+      ${descHtml}
+    </div>`;
+}
+
 async function approveSubmission(submissionId, btn) {
   const subRef = doc(db, "pendingClientSubmissions", submissionId);
   if (btn) btn.disabled = true;
@@ -10961,6 +11090,8 @@ async function approveSubmission(submissionId, btn) {
       await approveWeeklyScheduleSubmission(submissionId, subRef);
     } else if (sub.submissionType === "infoUpdate") {
       await approveInfoUpdateSubmission(submissionId, subRef);
+    } else if (sub.submissionType === "staffRequest") {
+      await approveStaffRequestSubmission(submissionId, subRef);
     } else {
       throw new Error(`Unsupported submissionType: ${sub.submissionType}`);
     }
@@ -11094,6 +11225,91 @@ async function approveInfoUpdateSubmission(submissionId, subRef) {
     clientId: cid, updateType, category,
     surface: "inbox-approve-infoUpdate",
   });
+}
+
+// Approve a "staffRequest" submission. Only flips status — help requests
+// aren't facts about the client, they're a one-off ask, so nothing mirrors
+// to the canonical record. After approval, staff can print the request
+// via the Print button rendered on approved staffRequest inbox rows.
+async function approveStaffRequestSubmission(submissionId, subRef) {
+  const subSnap = await getDoc(subRef);
+  const sub = subSnap.data();
+  const userEmail = auth.currentUser.email;
+  await updateDoc(subRef, {
+    status: "approved",
+    reviewedAt: serverTimestamp(),
+    reviewedBy: userEmail,
+  });
+  await logAccess(AUDIT_ACTIONS.APPROVE, "pendingClientSubmission", submissionId, {
+    clientId: sub.clientId, submissionType: "staffRequest",
+    subject: sub.subject, surface: "inbox-approve",
+  });
+}
+
+// Open a printable view of an approved help request in a new window and
+// trigger the browser's print dialog. Includes client identifiers, subject,
+// full description, submitted/approved timestamps, and an approving-staff
+// signature line.
+function printStaffRequest(submissionId, data) {
+  const orgName = (typeof TENANT !== "undefined" && TENANT?.orgName) || "Organization";
+  const subj = REQUEST_SUBJECT_LABELS[data.subject] || data.subject || "(no subject)";
+  const desc = (data.description || "").trim();
+  const submittedAt = data.submittedAt?.toDate
+    ? data.submittedAt.toDate().toLocaleString()
+    : "—";
+  const reviewedAt = data.reviewedAt?.toDate
+    ? data.reviewedAt.toDate().toLocaleString()
+    : "—";
+  const clientLine = `${data.clientName || data.clientId || ""}${data.clientId && data.clientName ? ` (${data.clientId})` : ""}`;
+  const html = `<!doctype html>
+<html><head><meta charset="utf-8"><title>Help Request — ${escapeHtml(subj)}</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color: #111; max-width: 7in; margin: 0.6in auto; padding: 0 0.5in; }
+  h1 { font-size: 18pt; margin: 0 0 0.2rem; }
+  h2 { font-size: 13pt; margin: 1rem 0 0.25rem; border-bottom: 1px solid #999; padding-bottom: 0.1rem; }
+  .meta { color: #555; font-size: 10pt; margin: 0.1rem 0; }
+  dl { display: grid; grid-template-columns: max-content 1fr; column-gap: 0.6rem; row-gap: 0.25rem; margin: 0.5rem 0; }
+  dt { font-weight: bold; color: #333; }
+  dd { margin: 0; }
+  .desc { white-space: pre-wrap; margin: 0.4rem 0; }
+  .sig-line { display: inline-block; border-bottom: 1px solid #333; min-width: 3in; height: 0.4in; vertical-align: bottom; }
+  .sig-row { margin-top: 1rem; }
+  .footer { color: #666; font-size: 9pt; margin-top: 1.5rem; }
+  @media print { @page { margin: 0.5in; } }
+</style>
+</head><body>
+  <h1>${escapeHtml(orgName)} — Help Request</h1>
+  <p class="meta">Submission ID: ${escapeHtml(submissionId)}</p>
+
+  <h2>Client</h2>
+  <dl>
+    <dt>Name:</dt><dd>${escapeHtml(clientLine)}</dd>
+    <dt>Submitted:</dt><dd>${escapeHtml(submittedAt)}</dd>
+    <dt>Approved:</dt><dd>${escapeHtml(reviewedAt)} by ${escapeHtml(data.reviewedBy || "—")}</dd>
+  </dl>
+
+  <h2>Subject</h2>
+  <p>${escapeHtml(subj)}</p>
+
+  <h2>Description</h2>
+  <p class="desc">${escapeHtml(desc) || "(no description)"}</p>
+
+  <div class="sig-row">
+    <p><strong>Staff handling:</strong> <span class="sig-line"></span></p>
+    <p><strong>Date:</strong> <span class="sig-line" style="min-width: 1.5in;"></span></p>
+  </div>
+
+  <p class="footer">Printed ${escapeHtml(new Date().toLocaleString())}</p>
+<script>window.addEventListener("load", function(){ window.print(); });<\/script>
+</body></html>`;
+  const win = window.open("", "_blank", "width=900,height=1100");
+  if (!win) {
+    alert("Print blocked. Allow popups for this site, then click Print again.");
+    return;
+  }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
 }
 
 async function rejectSubmission(submissionId, note, btn) {

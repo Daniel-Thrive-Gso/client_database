@@ -341,14 +341,23 @@ service cloud.firestore {
         && request.resource.data.clientId is string
         && request.resource.data.clientId.matches('GSO-[0-9]{5}')
         && request.resource.data.status == 'pending'
-        && request.resource.data.submissionType in ['weeklySchedule', 'infoUpdate']
+        && request.resource.data.submissionType in ['weeklySchedule', 'infoUpdate', 'staffRequest']
         // infoUpdate carries a single status-update fact: updateType (one of
         // STATUS_UPDATE_TYPE_LABELS keys, validated app-side), occurredOn
         // (timestamp), and optional notes. Staff approval copies it into
         // clientStatusUpdates and mirrors onto clients/{cid} dot-paths.
         && (request.resource.data.submissionType != 'infoUpdate'
             || (request.resource.data.updateType is string
-                && request.resource.data.occurredOn is timestamp));
+                && request.resource.data.occurredOn is timestamp))
+        // staffRequest carries a help-request: subject (one of
+        // REQUEST_SUBJECT_LABELS keys, validated app-side) and a free-text
+        // description. Staff approval only flips status; nothing is mirrored
+        // to the canonical client record (it's a one-off ask, not a fact).
+        && (request.resource.data.submissionType != 'staffRequest'
+            || (request.resource.data.subject is string
+                && request.resource.data.description is string
+                && request.resource.data.description.size() > 0
+                && request.resource.data.description.size() <= 4000));
       // Once submitted, clients cannot edit. Staff update to set status to
       // 'approved' or 'rejected' (with optional review note); the canonical
       // record write happens in a separate transaction at approval time.

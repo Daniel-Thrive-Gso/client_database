@@ -197,6 +197,12 @@ form button {
   font-size: 0.9rem;
 }
 
+label:has(:is(input, select, textarea):required) > .lbl::after {
+  content: " *";
+  color: var(--accent);
+  font-weight: 600;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

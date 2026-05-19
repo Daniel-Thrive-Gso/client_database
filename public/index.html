@@ -46,10 +46,10 @@
         <h3>Client</h3>
         <p>Sign in with your <strong>Client ID</strong> and <strong>6-digit PIN</strong> from staff.</p>
         <form id="client-signin-form">
-          <label>Client ID
+          <label><span class="lbl">Client ID</span>
             <input id="client-signin-id" type="text" inputmode="text" autocomplete="username" placeholder="GSO-NNNNN" data-tenant-placeholder="clientIdExample" required />
           </label>
-          <label>PIN
+          <label><span class="lbl">PIN</span>
             <input id="client-signin-pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="6" pattern="[0-9]{6}" placeholder="6 digits" required />
           </label>
           <button id="client-signin-btn" type="submit">Sign in</button>
@@ -119,13 +119,13 @@
             <div id="self-eval-client-picker" class="client-picker"></div>
             <p class="note picker-field-note">Search by name, alias, or client ID. If the person isn't in the system yet, run a New Intake first.</p>
           </div>
-          <label>Reason
+          <label><span class="lbl">Reason</span>
             <textarea name="reason" rows="3" required></textarea>
           </label>
-          <label>Date given
+          <label><span class="lbl">Date given</span>
             <input name="dateGiven" type="date" required />
           </label>
-          <label>Given by
+          <label><span class="lbl">Given by</span>
             <input name="givenBy" type="text" required autocomplete="off" />
           </label>
           <button type="submit">Submit</button>
@@ -246,7 +246,7 @@
                 <div id="client-program-summary" class="program-summary"></div>
                 <form id="client-program-form" class="program-form" autocomplete="off">
                   <div class="row">
-                    <label>Level
+                    <label><span class="lbl">Level</span>
                       <select name="level" required>
                         <option value="alpha">Alpha</option>
                         <option value="bravo">Bravo</option>
@@ -362,7 +362,7 @@
                 </p>
                 <form id="status-update-form" class="status-update-form">
                   <div class="status-update-row">
-                    <label>What changed
+                    <label><span class="lbl">What changed</span>
                       <select name="updateType" required>
                         <option value="">— Select —</option>
                         <optgroup label="Documents">
@@ -396,6 +396,7 @@
                         </optgroup>
                         <optgroup label="Life milestones">
                           <option value="employment">Got a job</option>
+                          <option value="lostEmployment">Lost job</option>
                           <option value="housing">Got housing</option>
                           <option value="bankAccount">Opened a bank account</option>
                           <option value="phone">Got a phone</option>
@@ -408,7 +409,7 @@
                         </optgroup>
                       </select>
                     </label>
-                    <label>Date
+                    <label><span class="lbl">Date</span>
                       <input type="date" name="occurredOn" required />
                     </label>
                   </div>
@@ -782,7 +783,7 @@
 
               <p class="subsection-header">Intake date</p>
               <div class="row">
-                <label>Intake date
+                <label><span class="lbl">Intake date</span>
                   <input name="intakeDate" type="date" required />
                 </label>
                 <p class="note" style="margin: 0; align-self: flex-end;">Defaults to today. Change this when backfilling a current or past client so their record carries the actual intake date.</p>
@@ -813,19 +814,19 @@
 
               <p class="subsection-header">Name</p>
               <div class="row">
-                <label>First name <input name="firstName" type="text" required /></label>
+                <label><span class="lbl">First name</span> <input name="firstName" type="text" required /></label>
                 <label>Middle name <input name="middleName" type="text" /></label>
-                <label>Last name <input name="lastName" type="text" required /></label>
+                <label><span class="lbl">Last name</span> <input name="lastName" type="text" required /></label>
                 <label>Preferred / alias <input name="alias" type="text" /></label>
               </div>
 
               <p class="subsection-header">Birth & status</p>
               <div class="row">
-                <label>Date of birth <input name="dob" type="date" required /></label>
+                <label><span class="lbl">Date of birth</span> <input name="dob" type="date" required /></label>
                 <label>Place of birth (only used for birth-cert replacement)
                   <input name="placeOfBirth" type="text" placeholder="City, State" />
                 </label>
-                <label>Marital status
+                <label><span class="lbl">Marital status</span>
                   <select name="maritalStatus" required>
                     <option value="">—</option>
                     <option value="single">Single</option>
@@ -839,7 +840,7 @@
 
               <p class="subsection-header">Identifiers</p>
               <div class="row">
-                <label>SSN
+                <label><span class="lbl">SSN</span>
                   <input name="ssn" type="text" placeholder="XXX-XX-XXXX" inputmode="numeric" required />
                 </label>
                 <label>Driver's license state
@@ -1398,7 +1399,7 @@
 
                 <p class="subsection-header">Date &amp; reason</p>
                 <div class="row">
-                  <label>Exit date <input name="exitDate" type="date" required /></label>
+                  <label><span class="lbl">Exit date</span> <input name="exitDate" type="date" required /></label>
                   <label>Reason for exit (free text)
                     <input name="exitReason" type="text" placeholder="e.g. Completed program, voluntary departure" />
                   </label>
@@ -1411,6 +1412,8 @@
                   <label><input type="radio" name="housingAssessment" value="familyFriends" /> Moved in with family or friends (temporary or permanent)</label>
                   <label><input type="radio" name="housingAssessment" value="transitionalHousing" /> Moved to transitional or temporary housing facility</label>
                   <label><input type="radio" name="housingAssessment" value="shelterOrUnfit" /> Moved to a shelter or place unfit for humans</label>
+                  <label><input type="radio" name="housingAssessment" value="drugRehab" /> Moved to drug rehabilitation</label>
+                  <label><input type="radio" name="housingAssessment" value="mentalHealthInpatient" /> Moved to mental health inpatient</label>
                   <label><input type="radio" name="housingAssessment" value="jail" /> Client went to jail</label>
                   <label><input type="radio" name="housingAssessment" value="deceased" /> Client died</label>
                   <label><input type="radio" name="housingAssessment" value="refused" /> Client refused to provide</label>
@@ -1584,6 +1587,19 @@
         </label>
         <button id="client-info-update-submit-btn" type="button" class="big-btn big-btn-meal">Submit for approval</button>
         <p id="client-info-update-msg" class="status" hidden></p>
+      </div>
+
+      <div class="client-section" id="client-staff-request-section">
+        <h3>Ask staff for help</h3>
+        <p class="note">Submit a request for help with something on your case plan. A staff member will review and follow up.</p>
+        <label class="form-row">What do you need help with?
+          <select id="client-staff-request-subject"></select>
+        </label>
+        <label class="form-row">Describe what you're asking for
+          <textarea id="client-staff-request-description" rows="4" maxlength="4000" placeholder="Please be specific — what do you need, what have you already tried, any deadlines."></textarea>
+        </label>
+        <button id="client-staff-request-submit-btn" type="button" class="big-btn big-btn-meal">Submit request</button>
+        <p id="client-staff-request-msg" class="status" hidden></p>
       </div>
 
       <div class="client-section">
@@ -1787,7 +1803,7 @@
       <h3 id="drug-test-modal-title">Record drug test</h3>
       <div class="modal-form">
         <div class="row">
-          <label>Test date <input type="date" id="drug-test-date" required /></label>
+          <label><span class="lbl">Test date</span> <input type="date" id="drug-test-date" required /></label>
           <label>Observer name (test was not altered)
             <input type="text" id="drug-test-observer" />
           </label>
@@ -1843,7 +1859,7 @@
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="scanned-doc-modal-title">
       <h3 id="scanned-doc-modal-title">Upload document</h3>
       <div class="modal-form">
-        <label>Document type
+        <label><span class="lbl">Document type</span>
           <select id="scanned-doc-type" required>
             <option value="">— pick —</option>
             <option value="stateID">State ID / Driver's License</option>
@@ -1854,6 +1870,9 @@
             <option value="insurance">Medical Insurance Card</option>
             <option value="library">Library Card</option>
             <option value="cdib">CDIB</option>
+            <option value="vaCard">VA Card</option>
+            <option value="dd214">DD-214</option>
+            <option value="programCert">Program Certifications</option>
             <option value="panelResults">Panel Results</option>
             <option value="significantEvents">Significant Events</option>
           </select>
@@ -1861,7 +1880,7 @@
         <label>Label <span class="muted">(optional — e.g. "TCC Spring 2024")</span>
           <input type="text" id="scanned-doc-label" maxlength="120" />
         </label>
-        <label>Front <span class="muted">(image or PDF, max 10 MB)</span>
+        <label><span class="lbl">Front</span> <span class="muted">(image or PDF, max 10 MB)</span>
           <input type="file" id="scanned-doc-front" accept="image/*,application/pdf" required />
         </label>
         <label>Back <span class="muted">(optional — image or PDF)</span>
@@ -1889,7 +1908,7 @@
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="med-add-modal-title">
       <h3 id="med-add-modal-title">Add medication to catalog</h3>
       <div class="modal-form">
-        <label>Medication name <span class="muted">(required)</span>
+        <label><span class="lbl">Medication name</span>
           <input type="text" id="med-add-name" maxlength="190" required />
         </label>
         <label>Reasons for medication <span class="muted">(optional)</span>
@@ -1980,7 +1999,7 @@
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="phi-record-modal-title">
       <h3 id="phi-record-modal-title">Upload PHI record</h3>
       <div class="modal-form">
-        <label>Received under which ODH 206 authorization?
+        <label><span class="lbl">Received under which ODH 206 authorization?</span>
           <select id="phi-record-auth" required>
             <option value="">— pick an authorization —</option>
           </select>
@@ -1991,7 +2010,7 @@
         <label>Date received <span class="muted">(optional)</span>
           <input type="date" id="phi-record-received" />
         </label>
-        <label>File <span class="muted">(PDF or image, max 50 MB)</span>
+        <label><span class="lbl">File</span> <span class="muted">(PDF or image, max 50 MB)</span>
           <input type="file" id="phi-record-file" accept="application/pdf,image/*,.tif,.tiff" required />
         </label>
         <label>Notes <span class="muted">(optional)</span>
