@@ -1,22 +1,63 @@
 :root {
-  /* Dark theme matching the thrivegso.com brand: near-black background,
-     white text, gold accent (#ffb600 - same as the donate button + the
-     "Empower Hope" accent on the marketing site). Buttons + chips
-     painted with the gold accent get black text. State colors (alert
-     orange, OK green) are tuned for legibility on dark backgrounds. */
-  --bg: #111111;
-  --panel: #1c1c1c;
-  --input-bg: #0a0a0a;
-  --border: #333333;
-  --text: #ffffff;
-  --muted: #a8a8a8;
-  --accent: #ffb600;
-  --accent-hover: #e6a500;
-  --accent-text: #111111;
-  --alert: #ff8a3d;
-  --alert-bg: #3a1f10;
-  --ok: #4ade80;
-  --ok-bg: #0e2818;
+  /* Single source of truth for theme tokens. Dark theme matching
+     thrivegso.com: warm near-black surfaces, warm-white text, gold accent
+     (#FFB600 - same as the donate button on the marketing site). Buttons +
+     chips painted with the gold accent get warm-dark text. State colors
+     (alert orange, OK green) are tuned for legibility on warm-black. */
+
+  /* Surfaces */
+  --bg:         #0e0d0b;
+  --panel:      #1a1816;
+  --panel-2:    #221f1c;
+  --input-bg:   #0a0908;
+  --border:     #2a2724;
+  --border-hi:  #3a352f;
+
+  /* Text */
+  --text:       #f6f1e6;
+  --muted:      #a8a195;
+  --fg-dim:     #6e6a62;
+
+  /* Brand gold */
+  --accent:        #ffb600;
+  --accent-hover:  #e6a500;
+  --accent-text:   #1a1308;
+  --gold-deep:     #b88200;
+  --on-gold:       #1a1308;
+
+  /* State */
+  --alert:      #ff8a3d;
+  --alert-bg:   #3a1f10;
+  --alert-soft: #ff9a55;
+  --ok:         #4ade80;
+  --ok-bg:      #0e2818;
+  --ok-soft:    #6fc98a;
+  --rose:       #d97064;
+
+  /* Spacing scale — 4px base. Use tokens for structural padding/margin/gap.
+     One-off precision values (px column widths, font sizes, fine 0.35/0.55
+     detail offsets) can still use literals when no scale step fits. */
+  --space-0:  0;
+  --space-1:  0.25rem;   /*  4px */
+  --space-2:  0.5rem;    /*  8px */
+  --space-3:  0.75rem;   /* 12px */
+  --space-4:  1rem;      /* 16px */
+  --space-5:  1.25rem;   /* 20px */
+  --space-6:  1.5rem;    /* 24px */
+  --space-7:  2rem;      /* 32px */
+  --space-8:  3rem;      /* 48px */
+
+  /* Shape */
+  --radius-xs:   4px;
+  --radius-sm:   8px;
+  --radius:      14px;
+  --radius-pill: 999px;
+  --shadow-card: 0 1px 0 rgba(255,255,255,0.025) inset, 0 8px 24px rgba(0,0,0,0.35);
+
+  /* Type */
+  --font-sans:  "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Cinzel", "Trajan Pro", Cormorant SC, Georgia, serif;
+  --font-mono:  "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
 }
 
 * { box-sizing: border-box; }
@@ -77,8 +118,8 @@ section h2 {
 #signin-section {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 2rem;
+  border-radius: var(--radius-sm);
+  padding: var(--space-7);
   text-align: center;
 }
 
@@ -108,22 +149,31 @@ button.ghost:hover {
 .tiles {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
 }
 
 .tile {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1rem 1.25rem;
+  border-radius: var(--radius-sm);
+  padding: var(--space-4) var(--space-5);
 }
 
+/* Uppercase labels — two canonical routes for the staff app:
+   • Overline (.tile-label, .sidenav .nav-label): small, generously
+     tracked, dim. Used above prominent content (tile values, sidebar
+     section blocks).
+   • Field label (th, .kv-grid dt, .subsection-header): slightly larger,
+     modest tracking, muted. Used to annotate data fields, table columns,
+     and in-panel subsections.
+   Pick one when adding new label-style copy. Don't invent a third. */
 .tile-label {
-  font-size: 0.85rem;
-  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--fg-dim);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.14em;
 }
 
 .tile-value {
@@ -148,9 +198,9 @@ button.ghost:hover {
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1.25rem 1.5rem;
-  margin-bottom: 1.5rem;
+  border-radius: var(--radius-sm);
+  padding: var(--space-5) var(--space-6);
+  margin-bottom: var(--space-6);
 }
 
 .panel-header {
@@ -197,10 +247,19 @@ form button {
   font-size: 0.9rem;
 }
 
+/* Required-field indicator. Rendered as a small uppercase "REQUIRED"
+   tag next to the label rather than a gold asterisk. Frees the gold
+   accent to mean "branded / selected / active state" only, and is more
+   accessible (no need to know that * means required). */
 label:has(:is(input, select, textarea):required) > .lbl::after {
-  content: " *";
-  color: var(--accent);
-  font-weight: 600;
+  content: "Required";
+  color: var(--fg-dim);
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-left: 0.5rem;
+  vertical-align: 0.05em;
 }
 
 table {
@@ -221,8 +280,8 @@ th {
   color: var(--muted);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  font-size: 0.72rem;
 }
 
 tr.empty td {
@@ -267,9 +326,9 @@ td button {
 
 .section {
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.75rem 1rem 1rem;
-  margin: 1rem 0;
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  margin: var(--space-4) 0;
 }
 
 .section legend {
@@ -310,11 +369,11 @@ td button {
 
 .subsection-header {
   margin: 0.9rem 0 0.4rem;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--muted);
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
 }
 
 .subsection-header:first-child {
@@ -496,14 +555,14 @@ td button {
 .modal-card {
   position: relative;
   background: var(--panel);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   max-width: 720px;
   width: 100%;
   max-height: calc(100vh - 2rem);
   display: flex;
   flex-direction: column;
-  padding: 1.25rem 1.5rem;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  padding: var(--space-5) var(--space-6);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
 }
 
 .modal-card h3 {
@@ -606,7 +665,7 @@ tbody tr.client-row { cursor: pointer; }
 tbody tr.client-row:hover { background: rgba(255, 182, 0, 0.06); }
 tbody tr.client-row td code { font-size: 0.85rem; }
 tbody tr.client-section-divider td {
-  background: #1c1c1c;
+  background: var(--panel);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -655,9 +714,9 @@ tbody tr.client-section-divider td {
 }
 .kv-grid dt {
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   font-weight: 600;
 }
 .kv-grid dd {
@@ -1085,17 +1144,17 @@ tbody tr.client-section-divider td {
 }
 .consolidated-event.is-clickable:hover,
 .consolidated-event.is-clickable:focus {
-  background: var(--panel-2, #2a2a2a);
-  border-color: var(--accent, #888);
+  background: var(--panel-2);
+  border-color: var(--accent);
   outline: none;
 }
 
 /* ===== Appointment edit/add modal ===== */
 dialog.appointment-modal {
   border: 1px solid var(--border);
-  border-radius: var(--radius, 8px);
-  background: var(--panel, #1f1f1f);
-  color: var(--text, #eee);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
   padding: 1.2rem 1.3rem;
   max-width: min(28rem, 95vw);
   width: 28rem;
@@ -1125,12 +1184,12 @@ dialog.appointment-modal .appointment-modal-actions {
 dialog.appointment-modal #appointment-modal-delete {
   margin-right: auto;
   background: transparent;
-  color: var(--accent-error, #e35b5b);
-  border: 1px solid var(--accent-error, #e35b5b);
+  color: var(--alert);
+  border: 1px solid var(--alert);
 }
 dialog.appointment-modal .status { font-size: 0.88rem; margin: 0.3rem 0 0; }
-dialog.appointment-modal .status.error { color: var(--accent-error, #e35b5b); }
-dialog.appointment-modal .status.ok { color: var(--accent-ok, #5bbf6b); }
+dialog.appointment-modal .status.error { color: var(--alert); }
+dialog.appointment-modal .status.ok { color: var(--ok); }
 
 /* ===== Staff save confirmation toast ===== */
 .staff-save-toast {
@@ -1254,8 +1313,8 @@ dialog.appointment-modal .status.ok { color: var(--accent-ok, #5bbf6b); }
   font: inherit;
 }
 .report-mode-toggle .mode-btn.active {
-  background: var(--accent, #2563eb);
-  color: #fff;
+  background: var(--accent);
+  color: var(--accent-text);
 }
 .report-mode-toggle .mode-btn + .mode-btn {
   border-left: 1px solid var(--border);
@@ -1292,8 +1351,8 @@ dialog.appointment-modal .status.ok { color: var(--accent-ok, #5bbf6b); }
 .gained-row[open] > summary::before { content: "â–¾"; }
 .gained-row .gained-count {
   font-weight: 600;
-  background: var(--accent, #2563eb);
-  color: #fff;
+  background: var(--accent);
+  color: var(--accent-text);
   border-radius: 999px;
   padding: 0.05rem 0.55rem;
   font-size: 0.85rem;
@@ -1821,7 +1880,7 @@ body.printing-thrift #thrift-print-view {
 .activity-row.activity-out { color: var(--alert); }
 .activity-row.activity-out .activity-by,
 .activity-row.activity-in .activity-by { color: var(--muted); }
-.activity-row.activity-in { color: var(--ok, #2a6b2a); }
+.activity-row.activity-in { color: var(--ok); }
 .activity-time { font-variant-numeric: tabular-nums; }
 
 .checkinout-summary {
@@ -1856,7 +1915,7 @@ body.printing-thrift #thrift-print-view {
   margin-bottom: 0.6rem;
   flex-wrap: wrap;
 }
-#client-checkinout-status.ok { color: var(--ok, #2a6b2a); }
+#client-checkinout-status.ok { color: var(--ok); }
 #client-checkinout-status.error { color: var(--alert); }
 
 /* Reason picker modal */
@@ -2123,7 +2182,7 @@ body.printing-thrift #thrift-print-view {
 .myschedule-thrift-chip {
   display: inline-block;
   padding: 0.05rem 0.45rem;
-  background: var(--panel-2, #2a2a2a);
+  background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 999px;
   font-size: 0.82rem;
@@ -2218,50 +2277,15 @@ body.printing-thrift #thrift-print-view {
 }
 
 /* ====================================================================
-   V2 VISUAL LAYER — applied as a cascade-over on top of the existing
-   rules. Per gso-thrive-design-system "v2" treatment: warmer near-black
-   surfaces, Cinzel display serif, Inter body, JetBrains Mono for IDs
-   and PINs, gradient panels, soft gold radial glows on body, sidebar
-   nav replacing top tabs.
-
-   Keep this block last so its selectors cascade naturally. Token
-   overrides on :root happen first; structural rules follow.
+   V2 VISUAL LAYER — body radial glow, font-family role mapping, sidebar
+   shell, panel/section refinements. All theme tokens live in the :root
+   block at the top of this file. Per gso-thrive-design-system "v2":
+   Cinzel display serif (brand moments only), Inter body, JetBrains Mono
+   for IDs and PINs, gradient panels, soft gold radial glows on body,
+   sidebar nav replacing top tabs.
    ==================================================================== */
 
 @import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
-
-:root {
-  /* Warmer surface ramp on top of the existing palette. The base tokens
-     (--bg, --panel, --border, etc.) are redefined to slightly warmer
-     near-blacks so every existing rule that references them picks up the
-     new feel without any per-component changes. */
-  --bg:        #0e0d0b;
-  --panel:     #1a1816;
-  --input-bg:  #0a0908;
-  --border:    #2a2724;
-  --text:      #f6f1e6;
-  --muted:     #a8a195;
-
-  /* New tokens unique to v2. */
-  --panel-2:   #221f1c;
-  --border-hi: #3a352f;
-  --fg-dim:    #6e6a62;
-  --gold-deep: #b88200;
-  --on-gold:   #1a1308;
-  --ok-soft:   #6fc98a;
-  --alert-soft: #ff9a55;
-  --rose:      #d97064;
-
-  --radius:    14px;
-  --radius-sm: 8px;
-  --radius-pill: 999px;
-
-  --shadow-card: 0 1px 0 rgba(255,255,255,0.025) inset, 0 8px 24px rgba(0,0,0,0.35);
-
-  --font-sans:  "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-serif: "Cinzel", "Trajan Pro", Cormorant SC, Georgia, serif;
-  --font-mono:  "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
-}
 
 body {
   font-family: var(--font-sans);
@@ -2273,18 +2297,36 @@ body {
   background-attachment: fixed;
 }
 
-/* Display serif for headings, greetings, and the "value" numbers on tiles.
-   The wordmark in the header uses the same serif. */
+/* Cinzel is reserved for brand moments only:
+   - the sidebar/header wordmark
+   - the sign-in entry card (briefly seen by everyone)
+   - the client home greeting
+   The staff workspace + its modals use Inter for functional headings so
+   daily-use surfaces stay quiet and fast to scan. Hierarchy is carried by
+   weight and size, not by a face change. */
 header .brand-mark,
 .sidebar-mark,
-h1, h2, h3,
-.section legend,
-.tile-value,
-.client-greeting h2,
-.modal-card h3 {
+#signin-section h2,
+#signin-section h3,
+.client-greeting h2 {
   font-family: var(--font-serif);
   font-weight: 500;
   letter-spacing: 0.02em;
+}
+
+body:has(#app-section:not([hidden])) :is(h1, h2, h3),
+body:has(#app-section:not([hidden])) .section legend,
+body:has(#app-section:not([hidden])) .modal-card h3 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+body:has(#app-section:not([hidden])) .tile-value {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Mono for IDs, PINs, paths, and any element explicitly tagged .mono. */
@@ -2366,9 +2408,10 @@ body:has(#app-section:not([hidden])) main {
 .sidenav { display: flex; flex-direction: column; gap: 0.9rem; overflow-y: auto; }
 .sidenav .nav-section { display: flex; flex-direction: column; gap: 2px; }
 .sidenav .nav-label {
-  font-size: 0.62rem;
+  font-size: 0.65rem;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   color: var(--fg-dim);
   padding: 0.4rem 0.75rem 0.25rem;
 }
@@ -2450,7 +2493,7 @@ body:has(#app-section:not([hidden])) main {
 /* Main column inside the staff shell — restore the page padding the old
    .tab-content layout used to get from <main>. */
 .main-col {
-  padding: 1.75rem 2rem 3rem;
+  padding: var(--space-7) var(--space-7) var(--space-8);
   min-width: 0;        /* allow grid child to shrink instead of overflowing */
   max-width: 1200px;
 }
@@ -2466,10 +2509,13 @@ body:has(#app-section:not([hidden])) main {
   background: linear-gradient(180deg, var(--panel-2), var(--panel));
   border-radius: var(--radius);
   box-shadow: var(--shadow-card);
-  padding: 1.1rem 1.25rem;
+  padding: var(--space-4) var(--space-5);
 }
-.tile-value { font-size: 2.4rem; font-weight: 500; line-height: 1.05; }
-.tile-label { font-size: 0.7rem; letter-spacing: 0.14em; color: var(--fg-dim); }
+/* tile-value font-size + line-height carried by this v2 rule; font-family,
+   weight, tracking, and tabular-nums are set in the body:has(...) rule
+   higher up. Drop the v2 weight override so the staff sans-serif treatment
+   wins cleanly. */
+.tile-value { font-size: 2.4rem; line-height: 1.05; }
 .tile.alert {
   background:
     radial-gradient(400px 200px at 100% 0%, rgba(255,138,61,0.10), transparent 60%),
@@ -2597,7 +2643,7 @@ button.ghost:hover { background: rgba(255,182,0,0.08); color: var(--accent); }
   .sidenav .nav-label { display: none; }
   .sidenav .tab-btn { padding: 0.4rem 0.7rem; font-size: 0.85rem; }
   .sidebar-user { margin-top: 0; border-top: 0; }
-  .main-col { padding: 1.25rem 1rem 2rem; max-width: 100%; }
+  .main-col { padding: var(--space-5) var(--space-4) var(--space-7); max-width: 100%; }
 }
 
 /* ───────────────── PWA + mobile polish ─────────────────
