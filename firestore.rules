@@ -295,7 +295,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     match /thriftStoreSchedule/{docId} {
-      allow read: if isStaff();
+      // Signed-in clients can read the weekly thrift doc; the client app
+      // filters the shifts array down to just their own shifts in JS.
+      // Firestore rules can't iterate the array to enforce that server-side.
+      allow read: if isStaff()
+        || (isSignedIn() && request.auth.token.role == 'client');
       allow create, update: if isStaff();
       allow delete: if isAdmin();
     }

@@ -17,7 +17,7 @@
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="GSO Thrive" />
+  <meta name="apple-mobile-web-app-title" content="GSO Thrive" data-tenant-content="appleMobileWebAppTitle" />
   <meta name="mobile-web-app-capable" content="yes" />
 
   <link rel="stylesheet" href="styles.css?v=20260519-pwa-mobile-1" />
@@ -44,10 +44,13 @@
 
       <div class="signin-client">
         <h3>Client</h3>
-        <p>Sign in with your <strong>Client ID</strong> and <strong>6-digit PIN</strong> from staff.</p>
+        <p>Sign in with the <strong>5-digit number</strong> from your client ID, plus your <strong>6-digit PIN</strong> from staff.</p>
         <form id="client-signin-form">
           <label><span class="lbl">Client ID</span>
-            <input id="client-signin-id" type="text" inputmode="text" autocomplete="username" placeholder="GSO-NNNNN" data-tenant-placeholder="clientIdExample" required />
+            <div class="client-id-input">
+              <span class="client-id-prefix" data-tenant-text="clientIdPrefixDisplay" aria-hidden="true">GSO-</span>
+              <input id="client-signin-id-digits" type="text" inputmode="numeric" autocomplete="username" maxlength="5" pattern="[0-9]{5}" data-tenant-placeholder="clientIdDigitsExample" placeholder="12345" required />
+            </div>
           </label>
           <label><span class="lbl">PIN</span>
             <input id="client-signin-pin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="6" pattern="[0-9]{6}" placeholder="6 digits" required />
@@ -241,7 +244,7 @@
               </fieldset>
 
               <fieldset class="section">
-                <legend>GSO Program</legend>
+                <legend><span data-tenant-text="orgShort">GSO</span> Program</legend>
                 <p class="note" style="margin-top: 0;">Level (Alpha → Bravo → Charlie → Delta), probation status, and current leadership role.</p>
                 <div id="client-program-summary" class="program-summary"></div>
                 <form id="client-program-form" class="program-form" autocomplete="off">
@@ -414,7 +417,7 @@
                     </label>
                   </div>
                   <label>Notes <span class="muted">(optional — short note for documents/benefits/milestones; full paragraph(s) for Panel Results)</span>
-                    <textarea name="notes" rows="3" placeholder="e.g. Picked up SSN replacement at SSA office; or — Started at Thrive Coffee 2026-05-08; or — Panel review notes describing progress and next steps."></textarea>
+                    <textarea name="notes" rows="3" placeholder="e.g. Picked up SSN replacement at SSA office; or — Started at Thrive Coffee 2026-05-08; or — Panel review notes describing progress and next steps." data-tenant-placeholder="notesPlaceholderExample"></textarea>
                   </label>
                   <div class="status-update-actions">
                     <button type="submit" id="status-update-save">Save update</button>
@@ -445,7 +448,7 @@
               <fieldset class="section" id="client-phi-records-section">
                 <legend>PHI records (received under ODH 206)</legend>
                 <p class="note">Scans of medical, mental-health, or
-                  substance-abuse records GSO received <em>on paper</em> from a
+                  substance-abuse records <span data-tenant-text="orgShort">GSO</span> received <em>on paper</em> from a
                   provider under a signed ODH 206 authorization. Keep the paper
                   original in the locked cabinet — uploading here puts a copy in
                   the access-controlled system instead of a physical-only file.
@@ -635,15 +638,17 @@
 
           <fieldset class="section">
             <legend>Thrift store schedule</legend>
-            <p class="note" style="margin-top: 0;">All shifts for the selected week. Each row references one client.</p>
+            <p class="note" style="margin-top: 0;">All shifts for the selected week. Each row holds up to two clients.</p>
             <table id="thrift-schedule-table" class="schedule-table">
               <thead>
                 <tr>
                   <th>Day</th>
                   <th>Start</th>
                   <th>End</th>
-                  <th>Client</th>
-                  <th>Role</th>
+                  <th>Client 1</th>
+                  <th>Role 1</th>
+                  <th class="thrift-slot-divider">Client 2</th>
+                  <th>Role 2</th>
                   <th></th>
                 </tr>
               </thead>
@@ -664,10 +669,66 @@
 
           <fieldset class="section">
             <legend>Consolidated view</legend>
+            <div class="consolidated-toolbar">
+              <button type="button" id="consolidated-add-appointment" class="ghost">+ Add appointment</button>
+              <span class="note">Click any client appointment below to edit or delete it.</span>
+            </div>
             <div id="schedule-consolidated"><p class="note">Loading…</p></div>
           </fieldset>
         </div>
       </div><!-- /tab-schedules -->
+
+      <dialog id="appointment-modal" class="appointment-modal">
+        <h3 id="appointment-modal-title">Edit appointment</h3>
+        <label class="form-row">Client
+          <select id="appointment-modal-client"></select>
+        </label>
+        <label class="form-row">Day
+          <select id="appointment-modal-day">
+            <option value="">—</option>
+            <option value="monday">Monday</option>
+            <option value="tuesday">Tuesday</option>
+            <option value="wednesday">Wednesday</option>
+            <option value="thursday">Thursday</option>
+            <option value="friday">Friday</option>
+            <option value="saturday">Saturday</option>
+            <option value="sunday">Sunday</option>
+          </select>
+        </label>
+        <div class="form-row appointment-modal-times">
+          <label>Start time
+            <input type="time" id="appointment-modal-start" />
+          </label>
+          <label>End time
+            <input type="time" id="appointment-modal-end" />
+          </label>
+        </div>
+        <label class="form-row">Type
+          <select id="appointment-modal-type">
+            <option value="">—</option>
+            <option value="appointment">Appointment</option>
+            <option value="class">Class</option>
+            <option value="personal">Personal</option>
+            <option value="meal">Meal</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label class="form-row">Title
+          <input type="text" id="appointment-modal-event-title" placeholder="Doctor visit, NA meeting…" />
+        </label>
+        <label class="form-row">Location
+          <input type="text" id="appointment-modal-location" placeholder="" />
+        </label>
+        <label class="form-row">Notes
+          <textarea id="appointment-modal-notes" rows="2"></textarea>
+        </label>
+        <p id="appointment-modal-msg" class="status" hidden></p>
+        <div class="appointment-modal-actions">
+          <button type="button" id="appointment-modal-cancel" class="ghost">Cancel</button>
+          <button type="button" id="appointment-modal-delete" hidden>Delete</button>
+          <button type="button" id="appointment-modal-save">Save</button>
+        </div>
+      </dialog>
 
       <div class="tab-content" id="tab-reports">
         <div class="panel">
@@ -772,7 +833,7 @@
 
             <fieldset class="section reentry-section">
               <legend>Re-entry (optional)</legend>
-              <p class="note">If this client is returning to GSO, search for them here. The form will pre-fill from their existing record, and the save will append a new intake to the same client ID. Leave blank for a brand-new client.</p>
+              <p class="note">If this client is returning to <span data-tenant-text="orgShort">GSO</span>, search for them here. The form will pre-fill from their existing record, and the save will append a new intake to the same client ID. Leave blank for a brand-new client.</p>
               <div id="reentry-client-picker" class="client-picker"></div>
               <div id="reentry-banner" class="reentry-banner" hidden></div>
               <p id="reentry-prefill-status" class="note" hidden></p>
@@ -1078,9 +1139,9 @@
             <fieldset class="section">
               <legend>6. History & Income</legend>
 
-              <p class="subsection-header">Prior contact with GSO</p>
+              <p class="subsection-header">Prior contact with <span data-tenant-text="orgShort">GSO</span></p>
               <div class="row">
-                <label>Previously a guest at GSO
+                <label>Previously a guest at <span data-tenant-text="orgShort">GSO</span>
                   <select name="previousGuest">
                     <option value="">—</option>
                     <option value="yes">Yes</option>
@@ -1327,7 +1388,7 @@
 
               <p class="subsection-header">Exit interview</p>
               <div class="checkboxes">
-                <label><input type="checkbox" name="acknowledgesExitInterview" /> Guest acknowledges they will receive an exit interview when leaving GSO</label>
+                <label><input type="checkbox" name="acknowledgesExitInterview" /> Guest acknowledges they will receive an exit interview when leaving <span data-tenant-text="orgShort">GSO</span></label>
               </div>
             </fieldset>
 
@@ -1382,7 +1443,7 @@
       <div class="tab-content" id="tab-exit">
         <div class="panel">
           <h2>Record an Exit</h2>
-          <p class="note">Documents a guest leaving GSO. Sets the client's status to <code>exited</code>, records housing destination and acknowledgements, and captures guest + staff signatures.</p>
+          <p class="note">Documents a guest leaving <span data-tenant-text="orgShort">GSO</span>. Sets the client's status to <code>exited</code>, records housing destination and acknowledgements, and captures guest + staff signatures.</p>
 
           <form id="exit-form" autocomplete="off">
 
@@ -1423,7 +1484,7 @@
                 <p class="subsection-header">Acknowledgements</p>
                 <div class="checkboxes">
                   <label><input type="checkbox" name="ackPersonalItems48h" /> Guest understands personal items must be picked up within 48 hours; afterwards they will be donated or disposed of</label>
-                  <label><input type="checkbox" name="ackMail" /> Guest understands GSO will not hold mail; Change of Address must be filed with the Post Office</label>
+                  <label><input type="checkbox" name="ackMail" /> Guest understands <span data-tenant-text="orgShort">GSO</span> will not hold mail; Change of Address must be filed with the Post Office</label>
                 </div>
 
                 <p class="subsection-header">Return eligibility</p>
@@ -1434,7 +1495,7 @@
                   </label>
                 </div>
                 <div class="checkboxes">
-                  <label><input type="checkbox" name="noReturn" /> Do NOT allow this client to return to GSO</label>
+                  <label><input type="checkbox" name="noReturn" /> Do NOT allow this client to return to <span data-tenant-text="orgShort">GSO</span></label>
                   <label><input type="checkbox" name="warnAtReturn" /> Warn staff to review this client's past history before doing a re-entry intake</label>
                 </div>
 
@@ -1602,6 +1663,15 @@
         <p id="client-staff-request-msg" class="status" hidden></p>
       </div>
 
+      <div class="client-section" id="client-my-schedule-section">
+        <h3>My schedule</h3>
+        <p class="note">Your approved personal events and any thrift store shifts staff have assigned you. Updates automatically when staff approves changes.</p>
+        <h4 id="client-my-schedule-this-week-heading" style="margin: 0.75rem 0 0.25rem;">This week</h4>
+        <div id="client-my-schedule-this-week"><p class="note">Loading…</p></div>
+        <h4 id="client-my-schedule-last-week-heading" style="margin: 1rem 0 0.25rem;">Last week</h4>
+        <div id="client-my-schedule-last-week"><p class="note">Loading…</p></div>
+      </div>
+
       <div class="client-section">
         <h3>My recent submissions</h3>
         <div id="client-submissions-list"><p class="note">Loading…</p></div>
@@ -1656,7 +1726,7 @@
       <div class="modal-form" id="odh206-gen-modal-body">
         <p id="odh206-gen-summary" class="note"></p>
         <label class="form-row">Disclosing party (whose records will be released)
-          <input type="text" id="odh206-gen-disclosing" placeholder="e.g. McAlester Regional Health Center" />
+          <input type="text" id="odh206-gen-disclosing" placeholder="e.g. McAlester Regional Health Center" data-tenant-placeholder="localFacilityExample" />
         </label>
         <fieldset class="form-group">
           <legend>Information to be shared</legend>
@@ -1678,7 +1748,7 @@
         </fieldset>
         <fieldset class="form-group">
           <legend>Expiration</legend>
-          <label><input type="radio" name="odh206-gen-expiry" value="event" checked /> Upon leaving Good Samaritan Outreach Program</label>
+          <label><input type="radio" name="odh206-gen-expiry" value="event" checked /> <span data-tenant-text="expirationOnExitEvent">Upon leaving Good Samaritan Outreach Program</span></label>
           <label><input type="radio" name="odh206-gen-expiry" value="date" /> Specific date
             <input type="date" id="odh206-gen-expiry-date" disabled />
           </label>
@@ -2047,7 +2117,11 @@
     <div id="history-report-print-content"></div>
   </div>
 
-  <script type="module" src="app.js?v=20260519-pwa-mobile-1"></script>
+  <!-- Floating confirmation banner used by staff-side save actions
+       (saveClientSchedule, saveThriftSchedule). Auto-hides after a few seconds. -->
+  <div id="staff-save-toast" class="staff-save-toast" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="app.js?v=20260520-staff-sched-edits-1"></script>
 
   <!-- Register the PWA service worker. Wrapped in a try/catch + capability
        check so older browsers (and the file:// protocol during local dev)

@@ -117,6 +117,28 @@ Unless revoked or otherwise indicated, this authorization expires one year from 
 Oklahoma State Department of Health, Community and Family Health Services / Administration. HIPAA Document — retained for a minimum of 6 years.
 
 ODH 206 (August 2014)`,
+
+  // Short display name used for the iOS "Add to Home Screen" tile. Kept
+  // separate from pageTitle so the tile can read shorter than the browser
+  // tab title.
+  appleMobileWebAppTitle: "GSO Thrive",
+
+  // Title shown on the modal that displays the release-of-info form.
+  // Oklahoma-specific today (ODH 206); change to the matching state form
+  // when forking. The body itself lives in odh206FormText above.
+  releaseFormTitle: "Oklahoma Standard Authorization (ODH 206)",
+
+  // Example values shown as placeholders in two ODH-206-generator inputs and
+  // one medical-events location input. Pure UI hints — clients/staff replace
+  // with the real values when filling out the form.
+  localFacilityExample: "McAlester Regional Health Center",
+  clinicLocationExample: "Tulsa, McAlester clinic",
+
+  // Long placeholder for the case-notes textarea on the New Intake form.
+  // Mentions GSO-specific examples (Thrive Coffee, SSA office) — replace
+  // wholesale for a fork.
+  notesPlaceholderExample:
+    "e.g. Picked up SSN replacement at SSA office; or — Started at Thrive Coffee 2026-05-08; or — Panel review notes describing progress and next steps.",
 };
 
 // Derived constants — don't edit; change the source fields above.
@@ -155,14 +177,26 @@ export function applyTenantBranding(doc = document) {
   doc.title = TENANT.pageTitle;
   for (const el of doc.querySelectorAll("[data-tenant-text]")) {
     const key = el.getAttribute("data-tenant-text");
-    if (TENANT[key] != null) el.textContent = TENANT[key];
+    if (key === "clientIdPrefixDisplay") {
+      el.textContent = `${TENANT.clientIdPrefix}-`;
+    } else if (TENANT[key] != null) {
+      el.textContent = TENANT[key];
+    }
   }
   for (const el of doc.querySelectorAll("[data-tenant-placeholder]")) {
     const key = el.getAttribute("data-tenant-placeholder");
     if (key === "clientIdExample") {
       const digits = "N".repeat(TENANT.clientIdDigits);
       el.placeholder = `${TENANT.clientIdPrefix}-${digits}`;
+    } else if (key === "clientIdDigitsExample") {
+      el.placeholder = "N".repeat(TENANT.clientIdDigits);
+    } else if (TENANT[key] != null) {
+      el.placeholder = TENANT[key];
     }
+  }
+  for (const el of doc.querySelectorAll("[data-tenant-content]")) {
+    const key = el.getAttribute("data-tenant-content");
+    if (TENANT[key] != null) el.setAttribute("content", TENANT[key]);
   }
   for (const el of doc.querySelectorAll("[data-tenant-value]")) {
     const key = el.getAttribute("data-tenant-value");

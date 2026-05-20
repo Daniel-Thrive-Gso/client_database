@@ -2234,7 +2234,7 @@ const odh206ReviewedInput = document.querySelector('input[name="odh206TextReview
 if (odh206ReadBtn) {
   odh206ReadBtn.addEventListener("click", async () => {
     const result = await openConsentModal({
-      title: "Oklahoma Standard Authorization (ODH 206)",
+      title: TENANT.releaseFormTitle,
       body: ODH206_TEXT,
       acceptLabel: "I have read this",
       denyLabel: "Cancel",
@@ -5781,7 +5781,7 @@ if (exitForm) {
   if (exitPickerRoot) {
     exitClientPicker = createClientPicker({
       root: exitPickerRoot,
-      placeholder: "Search for the guest exiting GSO…",
+      placeholder: `Search for the guest exiting ${TENANT.orgShort}…`,
       onChange(client) {
         exitSelectedClient = client;
         if (client) {
@@ -6646,6 +6646,7 @@ function buildThriftTemplateShifts() {
   return days.flatMap((day) => THRIFT_TEMPLATE_SHIFTS.map((s) => ({
     day, startTime: s.startTime, endTime: s.endTime,
     clientId: "", clientName: "", role: "",
+    clientId2: "", clientName2: "", role2: "",
   })));
 }
 
@@ -6768,9 +6769,9 @@ function typeDropdown(selected) {
   </select>`;
 }
 
-function clientDropdown(selected) {
+function clientDropdown(selected, field = "clientId") {
   const active = cachedClients.filter((c) => c.data.status === "active");
-  return `<select data-field="clientId">
+  return `<select data-field="${field}">
     <option value=""${!selected ? " selected" : ""}>—</option>
     ${active.map((c) => {
       const name = [c.data.firstName, c.data.middleName, c.data.lastName].filter(Boolean).join(" ");
@@ -6793,7 +6794,7 @@ function renderClientScheduleTable() {
       <td><input type="time" data-field="endTime" value="${escapeHtml(e.endTime || "")}" /></td>
       <td>${typeDropdown(e.type)}</td>
       <td><input type="text" data-field="title" value="${escapeHtml(e.title || "")}" placeholder="Doctor visit, NA meeting…" /></td>
-      <td><input type="text" data-field="location" value="${escapeHtml(e.location || "")}" placeholder="Tulsa, McAlester clinic…" /></td>
+      <td><input type="text" data-field="location" value="${escapeHtml(e.location || "")}" placeholder="${escapeHtml(TENANT.clinicLocationExample)}…" /></td>
       <td><input type="text" data-field="notes" value="${escapeHtml(e.notes || "")}" /></td>
       <td><button type="button" class="row-remove" data-action="remove" aria-label="Remove">&times;</button></td>
     </tr>
@@ -6804,7 +6805,7 @@ function renderThriftScheduleTable() {
   const body = document.getElementById("thrift-schedule-body");
   if (!body) return;
   if (thriftScheduleShifts.length === 0) {
-    body.innerHTML = `<tr class="empty"><td colspan="6">No shifts. Click "+ Add shift" to add one.</td></tr>`;
+    body.innerHTML = `<tr class="empty"><td colspan="8">No shifts. Click "+ Add shift" to add one.</td></tr>`;
     return;
   }
   body.innerHTML = thriftScheduleShifts.map((s, i) => `
@@ -6812,8 +6813,10 @@ function renderThriftScheduleTable() {
       <td>${dayDropdown(s.day)}</td>
       <td><input type="time" data-field="startTime" value="${escapeHtml(s.startTime || "")}" /></td>
       <td><input type="time" data-field="endTime" value="${escapeHtml(s.endTime || "")}" /></td>
-      <td>${clientDropdown(s.clientId)}</td>
+      <td>${clientDropdown(s.clientId, "clientId")}</td>
       <td><input type="text" data-field="role" value="${escapeHtml(s.role || "")}" placeholder="Register, sorting…" /></td>
+      <td class="thrift-slot-divider">${clientDropdown(s.clientId2, "clientId2")}</td>
+      <td><input type="text" data-field="role2" value="${escapeHtml(s.role2 || "")}" placeholder="Register, sorting…" /></td>
       <td><button type="button" class="row-remove" data-action="remove" aria-label="Remove">&times;</button></td>
     </tr>
   `).join("");
@@ -6845,19 +6848,27 @@ function detectConflicts() {
   for (const cs of allClientSchedulesForWeek) csByClient.set(cs.data.clientId, cs);
 
   for (const shift of thriftScheduleShifts) {
-    if (!shift.clientId) continue;
-    const cs = csByClient.get(shift.clientId);
-    if (!cs) continue;
-    const events = Array.isArray(cs.data.events) ? cs.data.events : [];
-    for (const e of events) {
-      if (eventsOverlap(shift, e)) {
-        conflicts.push({
-          kind: "thrift",
-          clientId: shift.clientId,
-          clientName: shift.clientName || cs.data.clientName || shift.clientId,
-          shift,
-          event: e,
-        });
+    // Each shift can have two assigned clients; check both against their
+    // personal events for overlap.
+    const slotPairs = [
+      { cid: shift.clientId, name: shift.clientName },
+      { cid: shift.clientId2, name: shift.clientName2 },
+    ];
+    for (const { cid, name } of slotPairs) {
+      if (!cid) continue;
+      const cs = csByClient.get(cid);
+      if (!cs) continue;
+      const events = Array.isArray(cs.data.events) ? cs.data.events : [];
+      for (const e of events) {
+        if (eventsOverlap(shift, e)) {
+          conflicts.push({
+            kind: "thrift",
+            clientId: cid,
+            clientName: name || cs.data.clientName || cid,
+            shift,
+            event: e,
+          });
+        }
       }
     }
   }
@@ -6938,12 +6949,33 @@ function renderConsolidated() {
   }
   for (const s of thriftScheduleShifts) {
     if (!s.day || !DAYS.includes(s.day)) continue;
-    byDay[s.day].push({
-      kind: "thrift",
-      clientId: s.clientId,
-      clientName: s.clientName || s.clientId || "(unassigned)",
-      ...s,
-    });
+    // Each shift can have two assigned clients; emit a card per filled slot.
+    // Shifts with no client in either slot still surface so staff can see the
+    // empty time block in the consolidated view.
+    const slots = [
+      { cid: s.clientId, name: s.clientName, role: s.role },
+      { cid: s.clientId2, name: s.clientName2, role: s.role2 },
+    ].filter((slot) => slot.cid);
+    if (slots.length === 0) {
+      byDay[s.day].push({
+        kind: "thrift",
+        clientId: "",
+        clientName: "(unassigned)",
+        ...s,
+      });
+    } else {
+      for (const slot of slots) {
+        byDay[s.day].push({
+          kind: "thrift",
+          clientId: slot.cid,
+          clientName: slot.name || slot.cid,
+          day: s.day,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          role: slot.role || "",
+        });
+      }
+    }
   }
   for (const day of DAYS) {
     byDay[day].sort((a, b) => {
@@ -6974,8 +7006,14 @@ function renderConsolidated() {
             `;
           }
           const detail = [e.title, e.location ? `@ ${e.location}` : ""].filter(Boolean).map(escapeHtml).join(" ");
+          // Stable composite key for matching events back to the array on
+          // save/delete, plus the index at render time as a secondary hint.
+          const eventKey = appointmentEventKey(e);
           return `
-            <div class="consolidated-event">
+            <div class="consolidated-event is-clickable" role="button" tabindex="0"
+                 data-kind="client"
+                 data-client-id="${escapeHtml(e.clientId)}"
+                 data-event-key="${escapeHtml(eventKey)}">
               <div class="when">${time}</div>
               <div class="who">${escapeHtml(e.clientName)}</div>
               <div>${escapeHtml(EVENT_TYPE_LABELS[e.type] || e.type || "")}${detail ? ` &mdash; ${detail}` : ""}</div>
@@ -6988,6 +7026,20 @@ function renderConsolidated() {
 }
 
 // ----- Editing handlers -----
+
+// Floating green confirmation banner for staff-side save actions. Mirrors the
+// client-app showClientActionStatus pattern but uses a dedicated toast element
+// at the page level so it's visible regardless of which schedule pane the
+// user is looking at when they hit Save.
+let staffSaveToastTimer = null;
+function showStaffSaveConfirmation(text) {
+  const el = document.getElementById("staff-save-toast");
+  if (!el) return;
+  el.textContent = text;
+  el.hidden = false;
+  if (staffSaveToastTimer) clearTimeout(staffSaveToastTimer);
+  staffSaveToastTimer = setTimeout(() => { el.hidden = true; }, 3500);
+}
 
 function clientScheduleMarkDirty() {
   clientScheduleDirty = true;
@@ -7153,6 +7205,7 @@ async function saveClientSchedule() {
       s.classList.remove("error");
       s.classList.add("muted");
     }
+    showStaffSaveConfirmation("Client schedule saved");
     renderConflicts();
     renderConsolidated();
   } catch (err) {
@@ -7165,12 +7218,21 @@ async function saveClientSchedule() {
 async function saveThriftSchedule() {
   const ref = doc(db, "thriftStoreSchedule", scheduleWeekStart);
   const shifts = thriftScheduleShifts
-    .filter((s) => s.day || s.startTime || s.endTime || s.clientId || s.role)
+    .filter((s) => s.day || s.startTime || s.endTime || s.clientId || s.role || s.clientId2 || s.role2)
     .map((s) => {
       let clientName = s.clientName || "";
       if (s.clientId) {
         const c = cachedClients.find((c) => c.id === s.clientId);
         if (c) clientName = [c.data.firstName, c.data.middleName, c.data.lastName].filter(Boolean).join(" ");
+      } else {
+        clientName = "";
+      }
+      let clientName2 = s.clientName2 || "";
+      if (s.clientId2) {
+        const c2 = cachedClients.find((c) => c.id === s.clientId2);
+        if (c2) clientName2 = [c2.data.firstName, c2.data.middleName, c2.data.lastName].filter(Boolean).join(" ");
+      } else {
+        clientName2 = "";
       }
       return {
         day: s.day || "",
@@ -7179,6 +7241,9 @@ async function saveThriftSchedule() {
         clientId: s.clientId || "",
         clientName,
         role: s.role || "",
+        clientId2: s.clientId2 || "",
+        clientName2,
+        role2: s.role2 || "",
       };
     });
 
@@ -7222,6 +7287,7 @@ async function saveThriftSchedule() {
       s.classList.remove("error");
       s.classList.add("muted");
     }
+    showStaffSaveConfirmation("Thrift schedule saved");
     renderConflicts();
     renderConsolidated();
   } catch (err) {
@@ -7272,7 +7338,14 @@ function buildThriftPrintMatrix(shifts) {
       slotMap.set(key, { startTime: s.startTime, endTime: s.endTime || "", cells });
     }
     const slot = slotMap.get(key);
-    slot.cells[s.day].push(s.clientName || s.clientId || "");
+    // Each shift can have up to two assigned clients; push each filled slot
+    // as its own name. The cell renderer pads to 2 lines per cell anyway.
+    if (s.clientId || s.clientName) {
+      slot.cells[s.day].push(s.clientName || s.clientId || "");
+    }
+    if (s.clientId2 || s.clientName2) {
+      slot.cells[s.day].push(s.clientName2 || s.clientId2 || "");
+    }
   }
   const slots = [...slotMap.values()].sort((a, b) => compareTimes(a.startTime, b.startTime));
   return { days, slots };
@@ -7290,7 +7363,7 @@ function renderThriftPrintHtml(weekStart, shifts) {
 
   if (!slots.length) {
     return `
-      <h1>GSO Thrift Store Schedule</h1>
+      <h1>${TENANT.orgShort} Thrift Store Schedule</h1>
       <p class="thrift-print-week">Week of ${escapeHtml(fmtFull(start))} (${escapeHtml(headerRange)})</p>
       <p class="thrift-print-empty">No shifts scheduled for this week.</p>
     `;
@@ -7324,7 +7397,7 @@ function renderThriftPrintHtml(weekStart, shifts) {
   }).join("");
 
   return `
-    <h1>GSO Thrift Store Schedule</h1>
+    <h1>${TENANT.orgShort} Thrift Store Schedule</h1>
     <p class="thrift-print-week">Week of ${escapeHtml(fmtFull(start))} (${escapeHtml(headerRange)})</p>
     <table class="thrift-print-table">
       <thead><tr><th class="thrift-print-shift">Shift</th>${headerCells}</tr></thead>
@@ -7358,6 +7431,287 @@ async function handleThriftPrint() {
     surface: "thrift-print", shiftCount: thriftScheduleShifts.length,
   });
 }
+
+// ----- Appointment edit/add modal (driven from the consolidated view) -----
+//
+// Lets staff click any personal appointment in the consolidated view to edit
+// or delete it, and add a brand-new appointment for any client without first
+// switching to the per-client editor. Thrift shifts are NOT edited here —
+// they have their own editor with two-slot semantics.
+//
+// Event matching strategy: each card carries a composite data-event-key
+// (day|startTime|endTime|type|title). On save/delete we re-find the event in
+// the live events array by key to survive reorders.
+
+let appointmentModalState = { mode: "add", clientId: "", eventKey: "" };
+
+function appointmentEventKey(e) {
+  return `${e.day || ""}|${e.startTime || ""}|${e.endTime || ""}|${e.type || ""}|${e.title || ""}`;
+}
+
+function appointmentModalEl(id) {
+  return document.getElementById(id);
+}
+
+function populateAppointmentModalClientDropdown(selectedCid) {
+  const sel = appointmentModalEl("appointment-modal-client");
+  if (!sel) return;
+  const active = cachedClients.filter((c) => c.data.status === "active");
+  sel.innerHTML = `<option value="">—</option>` + active.map((c) => {
+    const name = [c.data.firstName, c.data.middleName, c.data.lastName].filter(Boolean).join(" ");
+    return `<option value="${escapeHtml(c.id)}"${selectedCid === c.id ? " selected" : ""}>${escapeHtml(name)} (${escapeHtml(c.id)})</option>`;
+  }).join("");
+}
+
+function showAppointmentModalMsg(text, kind = "error") {
+  const el = appointmentModalEl("appointment-modal-msg");
+  if (!el) return;
+  el.textContent = text;
+  el.classList.remove("ok", "error");
+  el.classList.add(kind);
+  el.hidden = !text;
+}
+
+function openAppointmentModal(mode, prefill) {
+  const dlg = appointmentModalEl("appointment-modal");
+  if (!dlg) return;
+  appointmentModalState = {
+    mode,
+    clientId: prefill?.clientId || "",
+    eventKey: prefill?.eventKey || "",
+  };
+  appointmentModalEl("appointment-modal-title").textContent =
+    mode === "edit" ? "Edit appointment" : "Add appointment";
+  populateAppointmentModalClientDropdown(prefill?.clientId);
+  const clientSel = appointmentModalEl("appointment-modal-client");
+  if (clientSel) clientSel.disabled = mode === "edit";
+  appointmentModalEl("appointment-modal-day").value = prefill?.day || "";
+  appointmentModalEl("appointment-modal-start").value = prefill?.startTime || "";
+  appointmentModalEl("appointment-modal-end").value = prefill?.endTime || "";
+  appointmentModalEl("appointment-modal-type").value = prefill?.type || "";
+  appointmentModalEl("appointment-modal-event-title").value = prefill?.title || "";
+  appointmentModalEl("appointment-modal-location").value = prefill?.location || "";
+  appointmentModalEl("appointment-modal-notes").value = prefill?.notes || "";
+  const deleteBtn = appointmentModalEl("appointment-modal-delete");
+  if (deleteBtn) deleteBtn.hidden = mode !== "edit";
+  showAppointmentModalMsg("", "ok");
+  if (typeof dlg.showModal === "function") dlg.showModal();
+  else dlg.setAttribute("open", "");
+}
+
+function closeAppointmentModal() {
+  const dlg = appointmentModalEl("appointment-modal");
+  if (!dlg) return;
+  if (typeof dlg.close === "function") dlg.close();
+  else dlg.removeAttribute("open");
+}
+
+function readAppointmentModalFields() {
+  return {
+    clientId: appointmentModalEl("appointment-modal-client").value || "",
+    day: appointmentModalEl("appointment-modal-day").value || "",
+    startTime: appointmentModalEl("appointment-modal-start").value || "",
+    endTime: appointmentModalEl("appointment-modal-end").value || "",
+    type: appointmentModalEl("appointment-modal-type").value || "",
+    title: appointmentModalEl("appointment-modal-event-title").value.trim(),
+    location: appointmentModalEl("appointment-modal-location").value.trim(),
+    notes: appointmentModalEl("appointment-modal-notes").value.trim(),
+  };
+}
+
+async function saveAppointmentModal() {
+  const fields = readAppointmentModalFields();
+  const cid = appointmentModalState.mode === "edit"
+    ? appointmentModalState.clientId
+    : fields.clientId;
+  if (!cid) { showAppointmentModalMsg("Pick a client."); return; }
+  if (!fields.day) { showAppointmentModalMsg("Pick a day."); return; }
+  if (!fields.startTime || !fields.endTime) { showAppointmentModalMsg("Set both start and end times."); return; }
+  if (timeToMinutes(fields.startTime) >= timeToMinutes(fields.endTime)) {
+    showAppointmentModalMsg("End time must be after start time."); return;
+  }
+  if (!fields.type) { showAppointmentModalMsg("Pick a type."); return; }
+
+  const docId = `${cid}-${scheduleWeekStart}`;
+  const ref = doc(db, "clientWeeklySchedule", docId);
+  const cachedClient = cachedClients.find((c) => c.id === cid);
+  const clientName = cachedClient
+    ? [cachedClient.data.firstName, cachedClient.data.middleName, cachedClient.data.lastName].filter(Boolean).join(" ")
+    : cid;
+
+  const newEvent = {
+    day: fields.day,
+    startTime: fields.startTime,
+    endTime: fields.endTime,
+    type: fields.type,
+    title: fields.title,
+    location: fields.location,
+    notes: fields.notes,
+  };
+
+  const saveBtn = appointmentModalEl("appointment-modal-save");
+  if (saveBtn) saveBtn.disabled = true;
+  try {
+    await runTransaction(db, async (txn) => {
+      const snap = await txn.get(ref);
+      const isFirst = !snap.exists();
+      const existing = isFirst ? [] : (Array.isArray(snap.data().events) ? snap.data().events : []);
+      let next;
+      if (appointmentModalState.mode === "edit") {
+        const targetKey = appointmentModalState.eventKey;
+        const idx = existing.findIndex((e) => appointmentEventKey(e) === targetKey);
+        if (idx === -1) {
+          // Lost the original (someone else edited it since this modal opened).
+          // Surface the conflict instead of silently creating a duplicate.
+          throw new Error("This appointment was changed by someone else. Close and re-open to see the latest.");
+        }
+        next = existing.slice();
+        next[idx] = newEvent;
+      } else {
+        next = existing.concat([newEvent]);
+      }
+      const payload = {
+        clientId: cid,
+        clientName,
+        weekStart: scheduleWeekStart,
+        weekStartTimestamp: Timestamp.fromDate(new Date(scheduleWeekStart + "T00:00:00")),
+        events: next,
+        updatedAt: serverTimestamp(),
+        updatedBy: auth.currentUser.email,
+        expiresAt: scheduleExpiresAt(scheduleWeekStart),
+      };
+      if (isFirst) {
+        payload.createdAt = serverTimestamp();
+        payload.createdBy = auth.currentUser.email;
+      }
+      txn.set(ref, payload, { merge: true });
+    });
+
+    // Refresh the in-memory cache so consolidated + conflicts re-render with
+    // the just-written state (mirrors saveClientSchedule).
+    const freshSnap = await getDoc(ref);
+    if (freshSnap.exists()) {
+      const data = freshSnap.data();
+      const existing = allClientSchedulesForWeek.find((cs) => cs.id === docId);
+      if (existing) existing.data = data;
+      else allClientSchedulesForWeek.push({ id: docId, data });
+      // If the user happens to have this client picked in the per-client
+      // editor, refresh the editor's view too.
+      if (scheduleSelectedClient && scheduleSelectedClient.clientId === cid) {
+        clientScheduleEvents = Array.isArray(data.events) ? data.events.map((e) => ({ ...e })) : [];
+        clientScheduleIsNew = false;
+        clientScheduleDirty = false;
+        renderClientScheduleTable();
+      }
+    }
+
+    await logAccess(AUDIT_ACTIONS.UPDATE, "clientWeeklySchedule", docId, {
+      clientId: cid,
+      weekStart: scheduleWeekStart,
+      surface: appointmentModalState.mode === "edit" ? "consolidated-edit" : "consolidated-add",
+      eventCount: 1,
+    });
+
+    renderConflicts();
+    renderConsolidated();
+    closeAppointmentModal();
+  } catch (err) {
+    showAppointmentModalMsg(`Save failed: ${err.message}`);
+  } finally {
+    if (saveBtn) saveBtn.disabled = false;
+  }
+}
+
+async function deleteAppointmentModal() {
+  if (appointmentModalState.mode !== "edit") return;
+  if (!confirm("Delete this appointment? This can't be undone.")) return;
+
+  const cid = appointmentModalState.clientId;
+  const targetKey = appointmentModalState.eventKey;
+  const docId = `${cid}-${scheduleWeekStart}`;
+  const ref = doc(db, "clientWeeklySchedule", docId);
+  const deleteBtn = appointmentModalEl("appointment-modal-delete");
+  if (deleteBtn) deleteBtn.disabled = true;
+  try {
+    await runTransaction(db, async (txn) => {
+      const snap = await txn.get(ref);
+      if (!snap.exists()) throw new Error("Schedule no longer exists.");
+      const existing = Array.isArray(snap.data().events) ? snap.data().events : [];
+      const idx = existing.findIndex((e) => appointmentEventKey(e) === targetKey);
+      if (idx === -1) {
+        throw new Error("This appointment was changed by someone else. Close and re-open to see the latest.");
+      }
+      const next = existing.slice();
+      next.splice(idx, 1);
+      txn.set(ref, {
+        events: next,
+        updatedAt: serverTimestamp(),
+        updatedBy: auth.currentUser.email,
+      }, { merge: true });
+    });
+
+    const freshSnap = await getDoc(ref);
+    if (freshSnap.exists()) {
+      const data = freshSnap.data();
+      const existing = allClientSchedulesForWeek.find((cs) => cs.id === docId);
+      if (existing) existing.data = data;
+      if (scheduleSelectedClient && scheduleSelectedClient.clientId === cid) {
+        clientScheduleEvents = Array.isArray(data.events) ? data.events.map((e) => ({ ...e })) : [];
+        clientScheduleIsNew = false;
+        clientScheduleDirty = false;
+        renderClientScheduleTable();
+      }
+    }
+
+    await logAccess(AUDIT_ACTIONS.UPDATE, "clientWeeklySchedule", docId, {
+      clientId: cid,
+      weekStart: scheduleWeekStart,
+      surface: "consolidated-delete",
+    });
+
+    renderConflicts();
+    renderConsolidated();
+    closeAppointmentModal();
+  } catch (err) {
+    showAppointmentModalMsg(`Delete failed: ${err.message}`);
+  } finally {
+    if (deleteBtn) deleteBtn.disabled = false;
+  }
+}
+
+function handleConsolidatedClick(e) {
+  const card = e.target.closest('.consolidated-event[data-kind="client"]');
+  if (!card) return;
+  const cid = card.dataset.clientId;
+  const key = card.dataset.eventKey;
+  if (!cid) return;
+  const cs = allClientSchedulesForWeek.find((s) => s.data.clientId === cid);
+  if (!cs) return;
+  const event = (cs.data.events || []).find((ev) => appointmentEventKey(ev) === key);
+  if (!event) return;
+  openAppointmentModal("edit", { clientId: cid, eventKey: key, ...event });
+}
+
+function handleConsolidatedKeydown(e) {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const card = e.target.closest('.consolidated-event[data-kind="client"]');
+  if (!card) return;
+  e.preventDefault();
+  handleConsolidatedClick(e);
+}
+
+document.getElementById("schedule-consolidated")?.addEventListener("click", handleConsolidatedClick);
+document.getElementById("schedule-consolidated")?.addEventListener("keydown", handleConsolidatedKeydown);
+document.getElementById("consolidated-add-appointment")?.addEventListener("click", () => {
+  if (!scheduleWeekStart) {
+    alert("Pick a week first.");
+    return;
+  }
+  openAppointmentModal("add", {});
+});
+document.getElementById("appointment-modal-save")?.addEventListener("click", saveAppointmentModal);
+document.getElementById("appointment-modal-delete")?.addEventListener("click", deleteAppointmentModal);
+document.getElementById("appointment-modal-cancel")?.addEventListener("click", closeAppointmentModal);
 
 // ----- Week navigation -----
 
@@ -9887,36 +10241,53 @@ let todayCheckInOuts = [];
 let todayMeals = [];
 let todayShowers = [];
 
+// My-schedule panel state. Personal events come from a single query over
+// clientWeeklySchedule filtered to this client; we pick out the two weeks of
+// interest in the renderer. Thrift comes from one onSnapshot per week's
+// master doc. Querying-by-clientId for personal avoids a "rule denies getDoc
+// on a non-existent doc" trap when the client has no schedule yet.
+let clientMyScheduleAllUnsub = null;
+let clientMyScheduleThriftUnsubs = [];
+let clientMySchedulePersonalAll = [];
+let clientMyScheduleThrift = { thisWeek: null, lastWeek: null };
+let clientMyScheduleThisWeekStart = null;
+let clientMyScheduleLastWeekStart = null;
+
 // ----- Client sign-in form (PIN-based) -----
+// The Client ID field is split visually into a static "GSO-" prefix and a
+// digit-only input. We only ever read/write the digit portion here; the
+// prefix is baked into the DOM by config.js applyTenantBranding().
 (function bindClientSignInForm() {
   const form = document.getElementById("client-signin-form");
   if (!form) return;
-  const idInput = document.getElementById("client-signin-id");
+  const digitsInput = document.getElementById("client-signin-id-digits");
   const pinInput = document.getElementById("client-signin-pin");
   const errEl = document.getElementById("client-signin-error");
   const btn = document.getElementById("client-signin-btn");
 
-  // Auto-uppercase + auto-prefix so clients can just type the digits portion.
   const cidPrefix = TENANT.clientIdPrefix;
   const cidDigits = TENANT.clientIdDigits;
-  const partialDigitsRe = new RegExp(`^\\d{1,${cidDigits}}$`);
-  const fullDigitsRe = new RegExp(`^\\d{${cidDigits}}$`);
-  const exampleId = `${cidPrefix}-${"1".repeat(cidDigits)}`;
+  const digitsRe = new RegExp(`^\\d{${cidDigits}}$`);
 
-  idInput.addEventListener("input", () => {
-    let v = idInput.value.toUpperCase().replace(/\s+/g, "");
-    if (partialDigitsRe.test(v)) v = `${cidPrefix}-${v}`;
-    idInput.value = v;
+  // If a client pastes a full ID (e.g. "GSO-12345") or a value with stray
+  // characters, strip to digits and keep the last cidDigits so the visible
+  // prefix still makes sense.
+  digitsInput.addEventListener("paste", (e) => {
+    const raw = (e.clipboardData || window.clipboardData)?.getData("text") || "";
+    const digits = raw.replace(/\D+/g, "").slice(-cidDigits);
+    if (digits) {
+      e.preventDefault();
+      digitsInput.value = digits;
+    }
   });
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     errEl.hidden = true;
-    let clientId = idInput.value.trim().toUpperCase();
-    if (fullDigitsRe.test(clientId)) clientId = `${cidPrefix}-${clientId}`;
+    const digits = digitsInput.value.trim();
     const pin = pinInput.value.trim();
-    if (!CLIENT_ID_RE.test(clientId)) {
-      errEl.textContent = `Client ID must look like ${exampleId}.`;
+    if (!digitsRe.test(digits)) {
+      errEl.textContent = `Client ID must be a ${cidDigits}-digit number.`;
       errEl.hidden = false;
       return;
     }
@@ -9925,6 +10296,7 @@ let todayShowers = [];
       errEl.hidden = false;
       return;
     }
+    const clientId = `${cidPrefix}-${digits}`;
     btn.disabled = true;
     btn.textContent = "Signing in…";
     try {
@@ -9978,6 +10350,7 @@ async function initClientApp(user, clientId) {
   bindClientInfoUpdateForm();
   bindClientStaffRequestForm();
   startClientSubmissionsListener(clientId);
+  startClientMyScheduleListener(clientId);
   startClientAppDocsListener(clientId);
 }
 
@@ -10644,6 +11017,166 @@ document.getElementById("client-app-section")?.addEventListener("click", (e) => 
   );
 });
 
+// ----- My schedule (approved personal events + assigned thrift shifts) -----
+//
+// Two weeks shown: the current Mon-Sun week (where clients are mid-week) and
+// the immediately preceding Mon-Sun week (so a Monday morning view still has
+// last week's context). Source data:
+//   - clientWeeklySchedule/{cid}-{weekStart} — personal approved events.
+//   - thriftStoreSchedule/{weekStart}.shifts — filtered to this client.
+// Other clients' thrift shifts exist in the wire payload but are filtered
+// out before rendering (privacy posture confirmed acceptable 2026-05-20).
+
+function startClientMyScheduleListener(clientId) {
+  // Tear down any previous listeners + reset slot state so a re-init doesn't
+  // render stale data while the new snapshots arrive.
+  if (clientMyScheduleAllUnsub) { try { clientMyScheduleAllUnsub(); } catch {} }
+  clientMyScheduleAllUnsub = null;
+  clientMyScheduleThriftUnsubs.forEach((u) => { try { u(); } catch {} });
+  clientMyScheduleThriftUnsubs = [];
+  clientMySchedulePersonalAll = [];
+  clientMyScheduleThrift = { thisWeek: null, lastWeek: null };
+
+  clientMyScheduleThisWeekStart = mondayOf(new Date());
+  clientMyScheduleLastWeekStart = addDays(clientMyScheduleThisWeekStart, -7);
+
+  const personalQ = query(
+    collection(db, "clientWeeklySchedule"),
+    where("clientId", "==", clientId),
+  );
+  clientMyScheduleAllUnsub = onSnapshot(personalQ, (snap) => {
+    clientMySchedulePersonalAll = snap.docs.map((d) => ({ id: d.id, data: d.data() }));
+    renderClientMySchedule();
+  }, (err) => {
+    console.warn("[client-app] my-schedule personal listener error", err);
+    renderClientMyScheduleError(err);
+  });
+
+  const buckets = [
+    { key: "thisWeek", weekStart: clientMyScheduleThisWeekStart },
+    { key: "lastWeek", weekStart: clientMyScheduleLastWeekStart },
+  ];
+  for (const { key, weekStart } of buckets) {
+    const unsub = onSnapshot(doc(db, "thriftStoreSchedule", weekStart), (snap) => {
+      clientMyScheduleThrift[key] = snap.exists() ? snap.data() : null;
+      renderClientMySchedule();
+    }, (err) => {
+      console.warn(`[client-app] my-schedule thrift ${key} listener error`, err);
+      renderClientMyScheduleError(err);
+    });
+    clientMyScheduleThriftUnsubs.push(unsub);
+  }
+
+  clientAppListeners.push(() => {
+    if (clientMyScheduleAllUnsub) { try { clientMyScheduleAllUnsub(); } catch {} }
+    clientMyScheduleAllUnsub = null;
+    clientMyScheduleThriftUnsubs.forEach((u) => { try { u(); } catch {} });
+    clientMyScheduleThriftUnsubs = [];
+  });
+
+  // Paint headings once so the user sees the date range even before snapshots arrive.
+  renderClientMySchedule();
+}
+
+function renderClientMyScheduleError(err) {
+  const isIndex = (err?.code || "").includes("failed-precondition")
+    || /requires an index/i.test(err?.message || "");
+  const detail = isIndex
+    ? "Database index still building (a few minutes after a deploy). Try again shortly."
+    : err?.message || String(err);
+  const html = `<p class="error">Couldn't load schedule: ${escapeHtml(detail)}</p>`;
+  const thisEl = document.getElementById("client-my-schedule-this-week");
+  const lastEl = document.getElementById("client-my-schedule-last-week");
+  if (thisEl) thisEl.innerHTML = html;
+  if (lastEl) lastEl.innerHTML = html;
+}
+
+function renderClientMySchedule() {
+  const thisEl = document.getElementById("client-my-schedule-this-week");
+  const lastEl = document.getElementById("client-my-schedule-last-week");
+  if (!thisEl || !lastEl) return;
+  const thisHead = document.getElementById("client-my-schedule-this-week-heading");
+  const lastHead = document.getElementById("client-my-schedule-last-week-heading");
+  if (thisHead) thisHead.textContent = clientMyScheduleThisWeekStart
+    ? `This week — ${formatClientWeekRange(clientMyScheduleThisWeekStart)}`
+    : "This week";
+  if (lastHead) lastHead.textContent = clientMyScheduleLastWeekStart
+    ? `Last week — ${formatClientWeekRange(clientMyScheduleLastWeekStart)}`
+    : "Last week";
+  thisEl.innerHTML = renderClientMyScheduleWeekHtml(clientMyScheduleThisWeekStart, "thisWeek");
+  lastEl.innerHTML = renderClientMyScheduleWeekHtml(clientMyScheduleLastWeekStart, "lastWeek");
+}
+
+function renderClientMyScheduleWeekHtml(weekStart, thriftKey) {
+  if (!weekStart) return `<p class="note">Loading…</p>`;
+  const personalDoc = clientMySchedulePersonalAll.find((d) => d.data.weekStart === weekStart);
+  const personalEvents = (personalDoc?.data.events || []).map((e) => ({
+    kind: "personal",
+    day: e.day,
+    startTime: e.startTime || "",
+    endTime: e.endTime || "",
+    type: e.type || "",
+    title: e.title || "",
+    location: e.location || "",
+    notes: e.notes || "",
+  }));
+  const thriftDoc = clientMyScheduleThrift[thriftKey];
+  // Each shift can have two assigned clients (clientId / clientId2); pull the
+  // role from whichever slot this client is in.
+  const myThrift = (thriftDoc?.shifts || [])
+    .filter((s) => s.clientId === currentUserClientId || s.clientId2 === currentUserClientId)
+    .map((s) => ({
+      kind: "thrift",
+      day: s.day,
+      startTime: s.startTime || "",
+      endTime: s.endTime || "",
+      role: (s.clientId === currentUserClientId ? s.role : s.role2) || "",
+    }));
+  const all = [...personalEvents, ...myThrift];
+  if (all.length === 0) {
+    return `<p class="note">Nothing scheduled this week yet.</p>`;
+  }
+  const byDay = new Map(DAYS.map((d) => [d, []]));
+  for (const ev of all) {
+    if (!byDay.has(ev.day)) continue;
+    byDay.get(ev.day).push(ev);
+  }
+  let html = "";
+  for (const day of DAYS) {
+    const rows = byDay.get(day);
+    if (!rows.length) continue;
+    rows.sort((a, b) => (timeToMinutes(a.startTime) ?? 0) - (timeToMinutes(b.startTime) ?? 0));
+    html += `<div class="client-myschedule-day"><div class="client-myschedule-day-label">${escapeHtml(DAY_LABELS[day])}</div>`;
+    for (const r of rows) {
+      const time = r.startTime && r.endTime
+        ? `${formatTime12(r.startTime)}–${formatTime12(r.endTime)}`
+        : (r.startTime ? formatTime12(r.startTime) : "—");
+      let label;
+      if (r.kind === "thrift") {
+        label = `<span class="myschedule-thrift-chip">Thrift store shift</span>${r.role ? ` — ${escapeHtml(r.role)}` : ""}`;
+      } else {
+        const typeLabel = EVENT_TYPE_LABELS[r.type] || r.type || "Event";
+        const titlePart = r.title ? ` — ${escapeHtml(r.title)}` : "";
+        const locPart = r.location ? ` <span class="meta">(${escapeHtml(r.location)})</span>` : "";
+        label = `${escapeHtml(typeLabel)}${titlePart}${locPart}`;
+      }
+      html += `<div class="client-myschedule-row"><span class="meta">${escapeHtml(time)}</span><span>${label}</span></div>`;
+    }
+    html += `</div>`;
+  }
+  return html;
+}
+
+function formatClientWeekRange(weekStart) {
+  if (!weekStart) return "";
+  const end = addDays(weekStart, 6);
+  const fmt = (s) => {
+    const [y, m, d] = s.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  };
+  return `${fmt(weekStart)} – ${fmt(end)}`;
+}
+
 function startClientSubmissionsListener(clientId) {
   if (clientSubmissionsUnsub) { clientSubmissionsUnsub(); clientSubmissionsUnsub = null; }
   const q = query(
@@ -11045,8 +11578,12 @@ async function hydrateInboxRowThrift(row) {
       allShifts = [];
     }
   }
-  // Filter to this client's shifts. Empty-client template rows are ignored.
-  row.data.__canonicalThriftShifts = allShifts.filter((s) => s.clientId === clientId);
+  // Filter to this client's shifts. Each shift can have two assigned clients
+  // (clientId / clientId2); match either slot. Empty-client template rows are
+  // ignored.
+  row.data.__canonicalThriftShifts = allShifts.filter((s) =>
+    s.clientId === clientId || s.clientId2 === clientId
+  );
 }
 
 function renderInfoUpdateBody(data) {

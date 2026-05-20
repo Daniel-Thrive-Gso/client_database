@@ -1071,6 +1071,88 @@ tbody tr.client-section-divider td {
 }
 .schedule-table .row-remove:hover { color: var(--accent-hover); }
 
+/* Visual divider between the two client slots in the thrift schedule editor. */
+.schedule-table .thrift-slot-divider { border-left: 1px solid var(--border); }
+
+/* ===== Consolidated view: clickable client cards + add toolbar ===== */
+.consolidated-toolbar {
+  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+.consolidated-event.is-clickable {
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.consolidated-event.is-clickable:hover,
+.consolidated-event.is-clickable:focus {
+  background: var(--panel-2, #2a2a2a);
+  border-color: var(--accent, #888);
+  outline: none;
+}
+
+/* ===== Appointment edit/add modal ===== */
+dialog.appointment-modal {
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+  background: var(--panel, #1f1f1f);
+  color: var(--text, #eee);
+  padding: 1.2rem 1.3rem;
+  max-width: min(28rem, 95vw);
+  width: 28rem;
+}
+dialog.appointment-modal::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+dialog.appointment-modal h3 { margin: 0 0 0.8rem; font-size: 1.05rem; }
+dialog.appointment-modal .form-row {
+  display: flex; flex-direction: column; gap: 0.25rem;
+  margin-bottom: 0.6rem; font-size: 0.9rem;
+}
+dialog.appointment-modal .appointment-modal-times {
+  flex-direction: row; gap: 0.6rem;
+}
+dialog.appointment-modal .appointment-modal-times label { flex: 1; }
+dialog.appointment-modal input,
+dialog.appointment-modal select,
+dialog.appointment-modal textarea {
+  font-size: 0.95rem;
+  padding: 0.4rem 0.5rem;
+}
+dialog.appointment-modal .appointment-modal-actions {
+  display: flex; gap: 0.5rem; justify-content: flex-end;
+  margin-top: 0.8rem;
+}
+dialog.appointment-modal #appointment-modal-delete {
+  margin-right: auto;
+  background: transparent;
+  color: var(--accent-error, #e35b5b);
+  border: 1px solid var(--accent-error, #e35b5b);
+}
+dialog.appointment-modal .status { font-size: 0.88rem; margin: 0.3rem 0 0; }
+dialog.appointment-modal .status.error { color: var(--accent-error, #e35b5b); }
+dialog.appointment-modal .status.ok { color: var(--accent-ok, #5bbf6b); }
+
+/* ===== Staff save confirmation toast ===== */
+.staff-save-toast {
+  position: fixed;
+  top: 1.2rem;
+  right: 1.2rem;
+  z-index: 1000;
+  padding: 0.75rem 1.1rem;
+  background: #1b3a23;
+  color: #b6f1c4;
+  border: 1px solid #2f7a44;
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  font-weight: 600;
+  font-size: 0.95rem;
+  animation: staff-save-toast-in 0.18s ease-out;
+}
+@keyframes staff-save-toast-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .schedule-actions {
   display: flex;
   gap: 0.6rem;
@@ -1917,6 +1999,39 @@ body.printing-thrift #thrift-print-view {
 .signin-client form { display: flex; flex-direction: column; gap: 0.6rem; max-width: 340px; }
 .signin-client input { padding: 0.55rem 0.6rem; border: 1px solid var(--border); border-radius: 4px; font: inherit; }
 #client-signin-pin { letter-spacing: 0.2em; font-family: monospace; }
+/* Client ID field: visible "GSO-" prefix baked in, digit-only input next to it.
+   Border lives on the wrapper so the two children look like one field. */
+.signin-client .client-id-input {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--input-bg);
+}
+.signin-client .client-id-prefix {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.55rem 0.6rem;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  color: var(--muted);
+  font-family: monospace;
+  letter-spacing: 0.05em;
+  user-select: none;
+}
+.signin-client .client-id-input input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  letter-spacing: 0.2em;
+  font-family: monospace;
+}
+.signin-client .client-id-input:focus-within {
+  border-color: var(--accent);
+}
 
 /* ===== Client app: mobile-first home screen ===== */
 #client-app-section {
@@ -1984,6 +2099,36 @@ body.printing-thrift #thrift-print-view {
   border-radius: 6px;
 }
 .client-feed-row .meta { color: var(--muted); }
+
+/* ===== Client "My schedule" panel (read-only view of approved events) ===== */
+.client-myschedule-day {
+  margin-top: 0.45rem;
+  padding: 0.4rem 0.55rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.client-myschedule-day-label {
+  font-weight: 600;
+  font-size: 0.92rem;
+  margin-bottom: 0.25rem;
+}
+.client-myschedule-row {
+  display: flex;
+  gap: 0.6rem;
+  font-size: 0.92rem;
+  padding: 0.2rem 0;
+}
+.client-myschedule-row .meta { color: var(--muted); min-width: 7.5em; }
+.myschedule-thrift-chip {
+  display: inline-block;
+  padding: 0.05rem 0.45rem;
+  background: var(--panel-2, #2a2a2a);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
 
 /* ===== Client schedule submission ===== */
 .schedule-week-pick {
