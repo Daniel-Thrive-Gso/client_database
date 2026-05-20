@@ -384,7 +384,7 @@ td button {
   margin-top: 0.5rem;
   padding: 0.5rem 0.75rem;
   border-left: 3px solid var(--accent);
-  background: rgba(255, 182, 0, 0.04);
+  background: var(--panel-2);
   border-radius: 0 4px 4px 0;
 }
 
@@ -862,21 +862,24 @@ tbody tr.client-section-divider td {
   color: var(--muted);
 }
 
-/* ----- Re-entry intake banner ----- */
-
-.reentry-section legend { color: var(--accent); }
+/* ----- Re-entry intake banner -----
+   Informational notice when staff are creating an intake for a returning
+   client. Treated as a neutral info card — gold-on-gold-on-gold was
+   reading as "selection state" elsewhere in the app, so the banner is
+   demoted to panel-2 bg + neutral border. The legend inherits the normal
+   section-legend color (no override). */
 
 .reentry-banner {
   margin: 0.6rem 0 0;
   padding: 0.5rem 0.85rem;
-  background: rgba(255, 182, 0, 0.08);
-  border: 1px solid var(--accent);
+  background: var(--panel-2);
+  border: 1px solid var(--border-hi);
   border-radius: 4px;
-  color: var(--accent);
+  color: var(--text);
   font-size: 0.9rem;
 }
 .reentry-banner[hidden] { display: none; }
-.reentry-banner strong { color: var(--accent); }
+.reentry-banner strong { color: var(--text); }
 
 /* ----- Exit form ----- */
 
@@ -2551,7 +2554,7 @@ button.ghost:hover { background: rgba(255,182,0,0.08); color: var(--accent); }
 /* ───────────────── Conditional gold-rail blocks ───────────────── */
 .conditional {
   border-left: 3px solid var(--accent);
-  background: rgba(255,182,0,0.04);
+  background: var(--panel-2);
   border-radius: 0 4px 4px 0;
   padding-left: 0.85rem;
 }
