@@ -21,7 +21,7 @@ export const TENANT = {
   // Firebase web SDK config — from Firebase console.
   firebase: {
     apiKey: "AIzaSyBQj50m9HeEBDZ1b2eklTQEhVD63hzDCBM",
-    authDomain: "admin-automation-74110.web.app",
+    authDomain: "clients.thrivegso.com",
     projectId: "admin-automation-74110",
     storageBucket: "admin-automation-74110.firebasestorage.app",
     messagingSenderId: "721603594101",

@@ -26,10 +26,11 @@ import {
 applyTenantBranding();
 
 // authDomain matches the hosting domain so the redirect handler is same-origin.
-// The .web.app/__/auth/handler URI was added to the Firebase-managed OAuth
-// client (ID prefix 721603594101-ubl0c0nq0o61diurf43bkuri1nkmf95c) in Cloud
-// Console on 2026-05-08. Same-origin auth handler sidesteps the third-party-
-// cookie blocking that otherwise breaks the redirect→app session handoff.
+// The clients.thrivegso.com/__/auth/handler URI was added to the Firebase-
+// managed OAuth client (ID prefix 721603594101-ubl0c0nq0o61diurf43bkuri1nkmf95c)
+// in Cloud Console on 2026-05-20, alongside the original .web.app handler from
+// 2026-05-08. Same-origin auth handler sidesteps the third-party-cookie
+// blocking that otherwise breaks the redirect→app session handoff.
 const firebaseConfig = TENANT.firebase;
 
 const ALLOWED_DOMAIN = TENANT.staffDomain;
