@@ -1,0 +1,86 @@
+# client_database
+
+# Thrive Coffee — labels (paused)
+Confirm Dripshipper specs: 1500x1500 vs 1600x2400 dimensions, ingredients placement policy, back-of-bag upload policy
+Swap placeholder sunrise glyph on label templates for the official GSO sunrise mark
+Replace placeholder tasting notes on the 4 worked label examples with real notes from Dripshipper product descriptions
+Build per-SKU data sheet (CSV) for all 47 coffees: category, hero name, roast, grind, tasting notes
+Build a Node + sharp script that takes the CSV + 4 SVG templates and outputs 47 production-ready PNGs
+Repaint label gold #C9A227 to #FFB600 to match the locked brand gold
+Confirm per-SKU whole-bean vs ground values against Dripshipper inventory
+
+# Thrive Coffee — apparel (paused)
+Verify Printful blank garment SKUs for Mountain tee, Mission tees (x2), GSO Thrive hats (x2)
+Order one sample of each of the 5 launch apparel pieces
+Write Shopify product descriptions for each tee and hat tying back to the mission
+Decide existing-vs-new apparel SKU strategy (replace / add alongside / phase out)
+Repaint print-ready apparel gold #C9A227 to #FFB600
+Repaint mountain-graphic-vector.svg gold #C9A227 to #FFB600
+
+# Thrive Coffee — Shopify storefront (Pass 4 candidates)
+Bulk-tag the remaining 44 coffee SKUs with `thrive-impact` in Shopify admin → Products → bulk-edit → Tags (3 already tagged during 2026-05-21 spot-check; rolls the "Every cup is a hand up." microcopy to every coffee card and PDP)
+[rr] Replace stock hero image lkhlhk.jpg and about-section image dsfdsfds.jpg with curated mission/coffee imagery (replace-hero-and-about-imagery)
+Add a hero image to the Mission page (currently leads with page-title + rich-text)
+Enable star ratings on featured-collection once review volume exists
+Revisit body font (currently Century Gothic) after the Georgia heading swap has bedded in
+
+# Thrive Coffee — design critique 2026-05-20 (top 5)
+Move "Our Coffee Lineup" featured-collection background from white to cream (scheme-1) so it stops breaking the unified palette
+Swap the "More Than Coffee. A Mission." image away from another dark-bag photo, OR collapse the block into the pullquote directly below it
+Re-rank the four "Where Your Money Goes" cards so $2,700/year lands as the visual climax (stair-step sizes, gold-accent the largest card, or convert to a vertical timeline)
+Hide the Apparel and Coffee Mugs blocks from the homepage until both have real product photography (keep them on their collection pages)
+Flip the PDP Add-to-cart button to navy-on-cream so it outranks the purple "Buy with Shop" button (confirmed still inverted as of 2026-05-20)
+
+# Thrive Coffee — design critique 2026-05-20 (next 5)
+Demote gold to 1-2 primary moments per page — re-skin the always-on gold announcement bar and full-gold footer so the $27/DAY card and hero CTA can land
+Define a 2-stroke system (1px hairline + 2px structural) and apply it across pullquote rules, three-step circles, and stat card borders
+PDP description: move the Roast/Variety/Region/Altitude/Soil/Process spec dump into a collapsible tab and lead with flavor narrative + brewing recommendation
+Pick a homepage voice — mission-led vs commerce-led — and reorder sections accordingly (current alternating order makes both messages quieter)
+Re-treat the hero composition so the headline is the hero and the bag mockup supports the type instead of competing (separate from the eventual stock-image swap)
+
+# Thrive Coffee — brand review 2026-05-20 (ranked, most-needed → least-needed)
+# Source: /brand-review against docs/brand-voice.plugin (GSO Brand Voice Guidelines v1.0)
+#
+# Tier 1 — broken-in-production / brand front-door defects
+Replace the live "Button label" placeholder text on the Mission page (orphan Shopify placeholder between the Delta phase and the GSO description block — reads as broken in production)
+Write a real homepage SEO <title> and meta description; replace the "Thrive Coffee" placeholder so Google has something to rank and show — suggested title: "Thrive Coffee — Small-batch coffee that funds men rebuilding in McAlester, OK"; suggested meta: "Specialty coffee, 100% of profits to the Good Samaritan Outreach Thrive Program. A hand up, one bag at a time." (supersedes the old "D. Set homepage SEO title + meta description" Easy-Fixes line)
+Land "A hand up, not a hand out." — the brand's #1 must-use phrase — on the storefront (hero, mission block, and footer at minimum); currently appears zero times site-wide
+Land "Every cup is a hand up." — the storefront-specific top phrase from the voice doc — in a prominent spot (three-step section heading or above the featured collection); currently appears zero times
+#
+# Tier 2 — foundational voice violations
+Add "McAlester, Oklahoma" to the hero subhead, "More Than Coffee. A Mission." block, "Where Your Money Goes" opening line, and footer — McAlester appears zero times on the storefront despite being a foundational voice attribute ("we are McAlester, we sound like McAlester")
+Rewrite "More Than Coffee. A Mission." block to name the Thrive Program by name (currently says "the residential program") and weave in McAlester + "a hand up, not a hand out" + Level-Up Packet
+Write 2-3 sentence flavor narrative + brewing recommendation + per-product mission tie-in for all 47 coffees as PDP body copy that sits above the spec list (pairs with the design-critique item moving specs to a collapsible tab)
+Rewrite the tea-section copy "Herbal Elegance & Floral Blends / Soothing blends for quiet moments and mindful sips" to add a mission tie-in and drop wellness-brand drift — every tin funds the Thrive Program too
+#
+# Tier 3 — per-page voice + must-use term gaps
+Rewrite apparel banner copy: drop the empty "Apparel That Speaks Coffee" header, reword "From Beans To Threads / Rep your brew with Thrive Coffee Company" to add a mission tie-in (e.g., "Wear the mission"), fix the "Thrive Coffee Company" naming variant back to "Thrive Coffee"
+Fix the "Shop All Collection" grammar wart on the apparel banner CTA (same defect as the homepage CTA that commit 37d93b2 fixed — should read "Shop Apparel" or "Shop the Collection")
+Three-step Step 3: replace "the long walk from crisis to independence" with the canonical must-use phrasing "walk alongside" + "pathway to independence"
+Footer copy: change "100% of profits fund our mission." to "100% of profits fund the Thrive Program at Good Samaritan Outreach, McAlester, OK. A hand up, not a hand out." — names the program, names the place, lands the signature phrase
+Partnership strip: change "LEARN ABOUT THE PROGRAM AT THRIVEGSO.COM" to "LEARN ABOUT THE THRIVE PROGRAM AT THRIVEGSO.COM" — name the program
+Add "Level-Up Packet" / "Level-Up workbook" reference to the Mission page Alpha/Bravo phase descriptions — must-use term currently absent everywhere
+Add "Hope, encouragement, and accountability" — voice-doc top phrase for the GSO environment — as a kicker line below the WYMG section or as the Step-3 caption (currently the "encouraging with backbone" attribute lands nowhere on the storefront)
+Add one subtle "faith-rooted but inclusive" line on the Mission page so faith visibility isn't zero — e.g., "GSO is a faith-rooted nonprofit serving every man, every background, every neighbor in McAlester."
+#
+# Tier 4 — polish + nits
+Soften the unsubstantiated comparative claim in Three-step Step 1: "Same quality you would get anywhere — better, when it is fresh." → "Same quality you'd expect from any specialty roaster — fresh, because we roast small-batch."
+Newsletter: capitalize "Thrive coffee" → "Thrive Coffee" in the subscribe blurb (proper noun)
+Newsletter: add a one-line mission tie-in to the subscription pitch (currently brewing tips + 10% off only; the "and the men your bag funded last week" thread is missing)
+Mission page: drop the redundant H2 "The Mission" stacked directly under H1 "Our Mission"
+WYMG $25/week card: change "feeds a man for a full week." to "feeds one man in the Thrive Program for a full week." — small fix to "a man" generic framing and ties to the program by name
+#
+# Tier 5 — deferred / blocked
+Add one named-client micro-story to the Mission page above "Where the coffee comes from" — voice doc north star is "On a Tuesday in April, James walked into Good Samaritan with nothing but a backpack..." — BLOCKED on the client photo/name consent process flagged as Open Question #2 in the brand voice doc
+Publish an annual "Coffee → Thrive: where the money went last year" note linked from the footer to substantiate the public "100% of profits" claim (preventive integrity move; recommended cadence: once per fiscal year)
+
+# Thrive Coffee — Easy Fixes Batch (manual Shopify admin tasks)
+A. Paste refund + shipping policy into Settings → Policies
+B. Add contact email + response time to the Contact page
+C. Verify homepage CTA reads "Shop the Collection" (commit 37d93b2 may have already fixed this)
+E. Newsletter incentive: "Get 10% off your first order" copy + WELCOME10 discount + welcome automation
+
+# Misc / housekeeping
+Move github-recovery-codes.txt out of the repo root into a password manager
+Archive thrive-clone/ and form-app/ into "Already finished projects/" per CLAUDE.md
+Delete the empty "New folder" at the gso root
