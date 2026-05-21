@@ -1,5 +1,16 @@
 # client_database
 
+# GitHub org consolidation — move production repos under Good-Samaritan-Outreach
+Confirm with Daniel that the Daniel-Thrive-Gso → Good-Samaritan-Outreach transfer is approved, and that he has Owner role on the destination org
+Transfer Daniel-Thrive-Gso/client_database to Good-Samaritan-Outreach via GitHub Settings → Transfer ownership (preserves issues, PRs, stars, and sets up redirect from old URL)
+Transfer Daniel-Thrive-Gso/Thrive-Coffee to Good-Samaritan-Outreach the same way
+Update local git remotes after each transfer: `git remote set-url origin git@github.com:Good-Samaritan-Outreach/<repo>.git` in both client_database/ and Thrive-Coffee/
+Re-add collaborators / teams on the transferred repos (transfer keeps direct collaborators but org-team access has to be re-granted under the new org)
+Re-issue any GitHub Actions secrets / deploy keys tied to the old org (Firebase CI tokens, Shopify CLI tokens, etc.) and verify deploys still work end-to-end
+Decide the fate of Good-Samaritan-Outreach/demo-repository (delete the empty placeholder, or repurpose as the org README repo)
+Apply for / verify GitHub for Nonprofits status on the Good-Samaritan-Outreach org so the 501c3 gets free private repos + Team plan
+Update docs/repo-map.md once transfers are done — flip the "Origin" column for client_database and Thrive-Coffee to Good-Samaritan-Outreach, drop the "production repos haven't been transferred here" note
+
 # Thrive Coffee — labels (paused)
 Confirm Dripshipper specs: 1500x1500 vs 1600x2400 dimensions, ingredients placement policy, back-of-bag upload policy
 Swap placeholder sunrise glyph on label templates for the official GSO sunrise mark
