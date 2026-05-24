@@ -1,4 +1,8 @@
 # client_database
+[rr] Split public/app.js (12k lines, one ESM) into native ES modules — no bundler, no build step, keep firebase deploy unchanged. Goal: make duplicate top-level declarations impossible across files (silent SyntaxError has bitten twice) and make per-section reasoning tractable (split-app-js)
+Finish + commit in-flight schedule event-types expansion (work, counseling, doctor, court, aa_na): verify schedule renderer + filters don't choke on new types, normalize the "Doctor Appt." label vs the full-word labels on the others, commit with cache-buster bump
+Show client an unresolved-self-evaluation notice on their home screen (date given + reason); read-only — disappears when staff resolves it on the staff side. Mirror the existing startClientSubmissionsListener pattern; firestore.rules already allow Cown read on selfEvaluations
+Remove the Role 1 and Role 2 columns from the thrift store schedule view — not needed
 
 # GitHub org consolidation — move production repos under Good-Samaritan-Outreach
 Confirm with Daniel that the Daniel-Thrive-Gso → Good-Samaritan-Outreach transfer is approved, and that he has Owner role on the destination org
