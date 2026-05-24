@@ -6240,7 +6240,7 @@ function renderConflicts() {
   el.innerHTML = conflicts.map((c) => {
     if (c.kind === "thrift") {
       const day = DAY_LABELS[c.shift.day] || c.shift.day || "(no day)";
-      const eventDesc = c.event.title || c.event.type || "event";
+      const eventDesc = c.event.title || EVENT_TYPE_LABELS[c.event.type] || c.event.type || "event";
       return `
         <div class="conflict-row">
           <span class="conflict-client">${escapeHtml(c.clientName)}</span>
@@ -6255,8 +6255,8 @@ function renderConflicts() {
       `;
     }
     const day = DAY_LABELS[c.a.day] || c.a.day || "(no day)";
-    const aDesc = c.a.title || c.a.type || "event";
-    const bDesc = c.b.title || c.b.type || "event";
+    const aDesc = c.a.title || EVENT_TYPE_LABELS[c.a.type] || c.a.type || "event";
+    const bDesc = c.b.title || EVENT_TYPE_LABELS[c.b.type] || c.b.type || "event";
     return `
       <div class="conflict-row">
         <span class="conflict-client">${escapeHtml(c.clientName)}</span>
