@@ -42,19 +42,22 @@ try {
 }
 $stamp = "$timestamp$shaSuffix"
 
-# UTF-8 without BOM. PS 5.1's Set-Content -Encoding utf8 writes a BOM, which
-# would change file size on first write and confuse `git diff`.
+# UTF-8 without BOM. Used for BOTH read and write — PS 5.1's Get-Content -Raw
+# defaults to the system code page (Windows-1252 on English locales), which
+# mangles UTF-8 multi-byte chars like em-dash and ellipsis on round-trip.
+# Set-Content -Encoding utf8 in PS 5.1 also writes a BOM. The .NET path is the
+# only reliable UTF-8 round-trip on Windows PowerShell 5.1.
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 # 1. Rewrite SW_VERSION in public/sw.js
-$swContent = Get-Content -Raw $swPath
+$swContent = [System.IO.File]::ReadAllText($swPath, $utf8NoBom)
 $newSw = $swContent -replace "const SW_VERSION = '[^']+';", "const SW_VERSION = 'gso-thrive-$stamp';"
 if ($newSw -eq $swContent) { throw "Did not match SW_VERSION pattern in $swPath" }
 [System.IO.File]::WriteAllText($swPath, $newSw, $utf8NoBom)
 Write-Output "sw.js       -> SW_VERSION = 'gso-thrive-$stamp'"
 
 # 2. Rewrite ?v= on the entry <script> tag in public/index.html
-$indexContent = Get-Content -Raw $indexPath
+$indexContent = [System.IO.File]::ReadAllText($indexPath, $utf8NoBom)
 $pattern = '(<script type="module" src="app\.js\?v=)[^"]+(")'
 $newIndex = [regex]::Replace($indexContent, $pattern, "`${1}$stamp`${2}")
 if ($newIndex -eq $indexContent) { throw "Did not match entry <script> ?v= pattern in $indexPath" }
