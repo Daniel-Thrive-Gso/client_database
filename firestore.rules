@@ -61,7 +61,14 @@ service cloud.firestore {
 
     // ----- Self-Evaluations (prototype slice — already in production) -----
     match /selfEvaluations/{docId} {
-      allow read: if isStaff();
+      // Clients can read their own (so the client app can show an
+      // unresolved-notice on home until staff marks it resolved). Old
+      // docs without a clientId are staff-only; the client query filters
+      // on clientId == own so those just don't surface.
+      allow read: if isStaff()
+        || (isSignedIn()
+            && request.auth.token.role == 'client'
+            && resource.data.clientId == request.auth.token.clientId);
       allow create: if isStaff()
         && request.resource.data.clientName is string
         && request.resource.data.reason is string

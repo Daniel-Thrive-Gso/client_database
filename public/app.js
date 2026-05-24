@@ -9689,6 +9689,7 @@ async function initClientApp(user, clientId) {
   bindClientInfoUpdateForm();
   bindClientStaffRequestForm();
   startClientSubmissionsListener(clientId);
+  startClientSelfEvalNoticeListener(clientId);
   startClientMyScheduleListener(clientId);
   startClientAppDocsListener(clientId);
 }
@@ -10556,6 +10557,67 @@ function renderClientSubmissionsList(rows) {
         </div>
         <div class="meta">${detail}</div>
         ${noteHtml}
+      </div>`;
+  }).join("");
+}
+
+// ----- Client home: unresolved self-evaluation notice -----
+//
+// Read-only "Heads up from staff" panel on the client home showing each
+// unresolved selfEvaluations doc for this client. Disappears live when staff
+// marks an entry resolved on the Self-Evaluations report (dateResolved
+// flips from null to a timestamp, falls out of this query).
+
+let clientSelfEvalNoticeUnsub = null;
+function startClientSelfEvalNoticeListener(clientId) {
+  if (clientSelfEvalNoticeUnsub) { clientSelfEvalNoticeUnsub(); clientSelfEvalNoticeUnsub = null; }
+  // Two == constraints (clientId + dateResolved) are handled by single-field
+  // indexes; no composite index needed. Sort newest-first in JS so we can
+  // skip the orderBy and avoid the composite index altogether.
+  const q = query(
+    collection(db, "selfEvaluations"),
+    where("clientId", "==", clientId),
+    where("dateResolved", "==", null),
+  );
+  clientSelfEvalNoticeUnsub = onSnapshot(q, (snap) => {
+    const rows = snap.docs.map((d) => d.data());
+    rows.sort((a, b) => {
+      const aMs = a.dateGiven?.toMillis ? a.dateGiven.toMillis() : 0;
+      const bMs = b.dateGiven?.toMillis ? b.dateGiven.toMillis() : 0;
+      return bMs - aMs;
+    });
+    renderClientSelfEvalNotice(rows);
+  }, (err) => {
+    console.warn("[client-app] self-eval listener error", err);
+    // On error, hide the notice rather than show a scary message — a self-eval
+    // notice that fails to load shouldn't block the rest of the home screen.
+    const wrap = document.getElementById("client-self-eval-notice");
+    if (wrap) wrap.hidden = true;
+  });
+  clientAppListeners.push(() => {
+    if (clientSelfEvalNoticeUnsub) { clientSelfEvalNoticeUnsub(); clientSelfEvalNoticeUnsub = null; }
+  });
+}
+
+function renderClientSelfEvalNotice(rows) {
+  const wrap = document.getElementById("client-self-eval-notice");
+  const list = document.getElementById("client-self-eval-notice-list");
+  if (!wrap || !list) return;
+  if (!rows.length) {
+    wrap.hidden = true;
+    list.innerHTML = "";
+    return;
+  }
+  wrap.hidden = false;
+  list.innerHTML = rows.map((r) => {
+    const dateStr = r.dateGiven?.toDate
+      ? r.dateGiven.toDate().toLocaleDateString()
+      : "";
+    const reason = (r.reason || "").trim() || "(no reason given)";
+    return `
+      <div class="self-eval-entry">
+        <div class="meta">${escapeHtml(dateStr)}</div>
+        <div>${escapeHtml(reason)}</div>
       </div>`;
   }).join("");
 }

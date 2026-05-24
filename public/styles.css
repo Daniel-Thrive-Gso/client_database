@@ -2162,6 +2162,21 @@ body.printing-thrift #thrift-print-view {
 }
 .client-feed-row .meta { color: var(--muted); }
 
+/* "Heads up from staff" — unresolved self-evaluation entries shown on the
+   client home until staff marks them resolved. Gold accent to draw the eye
+   without looking like an error. */
+.client-self-eval-notice { border-color: var(--accent); }
+.client-self-eval-notice h3 { color: var(--accent); }
+.client-self-eval-notice .self-eval-entry {
+  font-size: 0.95rem;
+  padding: 0.5rem 0.6rem;
+  background: rgba(255,182,0,0.06);
+  border: 1px solid rgba(255,182,0,0.25);
+  border-radius: 6px;
+}
+.client-self-eval-notice .self-eval-entry + .self-eval-entry { margin-top: 0.4rem; }
+.client-self-eval-notice .self-eval-entry .meta { color: var(--muted); font-size: 0.82rem; }
+
 /* ===== Client "My schedule" panel (read-only view of approved events) ===== */
 .client-myschedule-day {
   margin-top: 0.45rem;
