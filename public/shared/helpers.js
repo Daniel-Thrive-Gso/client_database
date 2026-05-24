@@ -56,6 +56,24 @@ export function fmtClientTimeShort(ts) {
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
+// Locale date string for a Firestore Timestamp (or null when missing/invalid).
+export function fmtDate(ts) {
+  if (!ts) return null;
+  let d = ts;
+  if (typeof ts.toDate === "function") d = ts.toDate();
+  if (!(d instanceof Date) || isNaN(d)) return null;
+  return d.toLocaleDateString();
+}
+
+// Locale date+time string for a Firestore Timestamp (or null when missing/invalid).
+export function fmtTimestamp(ts) {
+  if (!ts) return null;
+  let d = ts;
+  if (typeof ts.toDate === "function") d = ts.toDate();
+  if (!(d instanceof Date) || isNaN(d)) return null;
+  return d.toLocaleString();
+}
+
 export function clientDisplayName(d) {
   return [d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ")
     || d.alias || "(no name)";

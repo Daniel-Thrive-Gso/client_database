@@ -87,10 +87,10 @@ Each phase = 1-3 commits, each commit deployable + smoke-tested. Phases ordered 
 
 Unblocks every later phase. No `typeof` guards retired here; the win is pure capability unlock.
 
-- [ ] Create `public/shared/clients-store.js` — owns `cachedClients` + `clientsSearchText` + the live `clients` collection listener. Exports `startClientsListener()`, `stopClientsListener()`, `getClients()`, `getSearchText()`, `setSearchText()`, `subscribe(callback)` where callback fires on every snapshot with the new array. **Do NOT include** the side-effect calls to Client Detail / Roster / Schedule / Reports — those become subscribers in subsequent phases. For now, leave the existing `typeof`-guarded calls behind in app.js's old `startClientsListener`, and have app.js's old function just delegate to the store + run the legacy hooks.
-- [ ] Create `public/shared/schedule-helpers.js` — extract `DAY_LABELS`, `EVENT_TYPES`, `EVENT_TYPE_LABELS`, `formatTime12`, `eventsOverlap`, `formatEventLi`, and any other schedule formatters Inbox needs. Pure, no state.
-- [ ] Create `public/shared/client-picker.js` — extract `createClientPicker`. Imports `getClients()` from `shared/clients-store.js` and `escapeHtml` from `shared/helpers.js`. The `selfEvalPickerRoot` initializer at the bottom of the function stays in app.js for now (moves with Self-Eval in phase 2.2).
-- [ ] Update app.js to import the moved symbols. Old `cachedClients` / `clientsSearchText` / `createClientPicker` declarations removed.
+- [x] Create `public/shared/clients-store.js` — owns `cachedClients` + `clientsSearchText` (exported as live `let` bindings) + the live `clients` collection listener. Exports start/stop, `getClients()`, `setSearchText()`, `subscribe(callback)`, `subscribeError(callback)`, `clientMatchesSearch`. Side-effect calls into Client Detail / Roster / Schedule / Reports stay in app.js as top-level store subscribers — each retires as its owning feature module moves.
+- [x] Create `public/shared/schedule-helpers.js` — `DAY_LABELS`, `EVENT_TYPES`, `EVENT_TYPE_LABELS`, `timeToMinutes`, `formatTime12`, `eventsOverlap`, `formatEventLi`. Pure, no state.
+- [x] Create `public/shared/client-picker.js` — `createClientPicker`. Imports `getClients` + `clientMatchesSearch` from clients-store, `escapeHtml` + `fmtDate` from helpers. `selfEvalPickerRoot` init stays in app.js for now.
+- [x] Update app.js to import the moved symbols. *(`cachedClients` / `clientsSearchText` are live-binding imports so the 24+ existing references didn't need to change. Also moved `fmtDate` + `fmtTimestamp` to `shared/helpers.js` since the picker needs `fmtDate` for DOB display.)*
 
 **Smoke-test gate:** Self-Eval picker still selects clients; Clients tab still renders + searches; Schedules client picker still works.
 

@@ -24,9 +24,22 @@ import {
 import {
   LEVEL_KEYS, LEVEL_LABELS, PROBATION_DEFAULT_DAYS,
   isOnProbation, levelDisplay,
-  escapeHtml, capitalize, fmtClientTimeShort,
+  escapeHtml, capitalize, fmtClientTimeShort, fmtDate, fmtTimestamp,
   clientDisplayName, isCurrentUserAdmin,
 } from "./shared/helpers.js";
+import {
+  cachedClients, clientsSearchText,
+  startClientsListener as storeStartClientsListener,
+  stopClientsListener as storeStopClientsListener,
+  subscribe as subscribeClientsStore,
+  subscribeError as subscribeClientsStoreError,
+  setSearchText, clientMatchesSearch,
+} from "./shared/clients-store.js";
+import {
+  DAY_LABELS, EVENT_TYPES, EVENT_TYPE_LABELS,
+  timeToMinutes, formatTime12, eventsOverlap, formatEventLi,
+} from "./shared/schedule-helpers.js";
+import { createClientPicker } from "./shared/client-picker.js";
 import {
   currentUserRole, currentUserClientId,
   setCurrentIdentity, clearCurrentIdentity,
@@ -103,7 +116,6 @@ const successSsnReveal = document.getElementById("success-ssn-reveal");
 const successSsnNote = document.getElementById("success-ssn-note");
 
 let unsubscribeSnapshot = null;
-let unsubscribeClients = null;
 let lastCreatedClientId = null;
 let revealTimer = null;
 let selfEvalClientPicker = null;
@@ -227,7 +239,7 @@ onAuthStateChanged(auth, async (user) => {
   if (!user) {
     clearCurrentIdentity();
     if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
-    if (unsubscribeClients) { unsubscribeClients(); unsubscribeClients = null; }
+    storeStopClientsListener();
     if (typeof stopBedsListener === "function") stopBedsListener();
     if (typeof stopCheckInOutListener === "function") stopCheckInOutListener();
     if (typeof stopInboxListener === "function") stopInboxListener();
@@ -653,51 +665,50 @@ async function saveReentryIntake(clientId, bundle) {
 }
 
 // ----- Clients list (live snapshot + client-side search filter) -----
-
-let cachedClients = [];
-let clientsSearchText = "";
+//
+// State + listener mechanics live in shared/clients-store.js. App.js still
+// owns the Clients TAB rendering (renderClients) and the side-effect hooks
+// into Client Detail / Roster / Schedule / Reports — both wired below as
+// store subscribers. Each side-effect hook retires as its owning feature
+// moves to its own module.
 
 function startClientsListener() {
   if (!clientsBody) return;
-  if (unsubscribeClients) unsubscribeClients();
-  const q = query(collection(db, "clients"), orderBy("createdAt", "desc"));
-  unsubscribeClients = onSnapshot(q, (snap) => {
-    cachedClients = snap.docs.map((d) => ({ id: d.id, data: d.data() }));
-    renderClients();
-    // If a client detail panel is currently open, refresh its inline edit
-    // sections (bed assignment + program summary) from the new snapshot so
-    // changes made elsewhere — by another staff or by the program-save
-    // handler itself — show up without closing/reopening.
-    if (currentDetailClientId) {
-      const c = cachedClients.find((c) => c.id === currentDetailClientId);
-      if (c) {
-        if (typeof renderClientBedAssignment === "function") {
-          renderClientBedAssignment(currentDetailClientId, c.data);
-        }
-        if (typeof renderClientProgram === "function") {
-          renderClientProgram(currentDetailClientId, c.data);
-        }
-      }
-    }
-    // First snapshot fire after sign-in: trigger initial roster + schedules +
-    // reports load now that we know the active-client set. Only happens once
-    // per session.
-    if (typeof tryInitRoster === "function") tryInitRoster();
-    if (typeof tryInitSchedules === "function") tryInitSchedules();
-    if (typeof tryInitReports === "function") tryInitReports();
-  }, (err) => {
-    clientsBody.innerHTML = `<tr class="empty"><td colspan="8">Could not load: ${escapeHtml(err.message)}</td></tr>`;
-  });
+  storeStartClientsListener();
 }
 
-function clientMatchesSearch(c, needle) {
-  if (!needle) return true;
-  const fields = [
-    c.id,
-    c.data.firstName, c.data.middleName, c.data.lastName, c.data.alias,
-  ].filter(Boolean).map((s) => String(s).toLowerCase());
-  return fields.some((f) => f.includes(needle));
-}
+// Top-level store subscribers — registered once at module load. The store
+// only fires them when its listener is active, so the lifetime matches the
+// snapshot stream automatically.
+subscribeClientsStore((clients) => {
+  renderClients();
+  // Refresh the open client-detail panel's bed + program sections so changes
+  // made elsewhere (by another staff or by the program-save handler itself)
+  // show without closing/reopening. typeof guards retire as Beds + Client
+  // Detail move in Phases 2.5 / 2.7+.
+  if (currentDetailClientId) {
+    const c = clients.find((c) => c.id === currentDetailClientId);
+    if (c) {
+      if (typeof renderClientBedAssignment === "function") {
+        renderClientBedAssignment(currentDetailClientId, c.data);
+      }
+      if (typeof renderClientProgram === "function") {
+        renderClientProgram(currentDetailClientId, c.data);
+      }
+    }
+  }
+  // First snapshot fire after sign-in bootstraps the lazy-init features.
+  // These typeof guards retire in Phase 2.6 (Roster + Schedule + Reports).
+  if (typeof tryInitRoster === "function") tryInitRoster();
+  if (typeof tryInitSchedules === "function") tryInitSchedules();
+  if (typeof tryInitReports === "function") tryInitReports();
+});
+
+subscribeClientsStoreError((err) => {
+  if (clientsBody) {
+    clientsBody.innerHTML = `<tr class="empty"><td colspan="8">Could not load: ${escapeHtml(err.message)}</td></tr>`;
+  }
+});
 
 function renderClients() {
   const needle = clientsSearchText.trim().toLowerCase();
@@ -769,7 +780,7 @@ function renderClients() {
 
 if (clientsSearchInput) {
   clientsSearchInput.addEventListener("input", () => {
-    clientsSearchText = clientsSearchInput.value;
+    setSearchText(clientsSearchInput.value);
     renderClients();
   });
 }
@@ -2184,21 +2195,7 @@ const ODH_INFO_LABELS = {
   psychotherapyNotes: "Psychotherapy notes (exclusive)",
 };
 
-function fmtDate(ts) {
-  if (!ts) return null;
-  let d = ts;
-  if (typeof ts.toDate === "function") d = ts.toDate();
-  if (!(d instanceof Date) || isNaN(d)) return null;
-  return d.toLocaleDateString();
-}
-
-function fmtTimestamp(ts) {
-  if (!ts) return null;
-  let d = ts;
-  if (typeof ts.toDate === "function") d = ts.toDate();
-  if (!(d instanceof Date) || isNaN(d)) return null;
-  return d.toLocaleString();
-}
+// fmtDate + fmtTimestamp now live in shared/helpers.js (imported at top).
 
 function isBlank(v) {
   return v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0);
@@ -4166,160 +4163,9 @@ document.getElementById("client-history-report-print")?.addEventListener("click"
 // Reusable client picker
 // ============================================================
 //
-// Mounts an autocomplete-style picker into a host element. Reads matches
-// from the in-memory `cachedClients` snapshot (already populated by the
-// Clients-tab listener), so no extra Firestore reads. Selection swaps the
-// input UI for a chip showing name + clientId; clearing returns to input.
-//
-// Usage:
-//   const picker = createClientPicker({ root, placeholder, maxResults });
-//   picker.getSelected()   // → { clientId, name, data } | null
-//   picker.clear()
-//   picker.focus()
-
-function createClientPicker({ root, placeholder = "Search clients by name, alias, or ID…", maxResults = 8, onChange = null } = {}) {
-  if (!root) throw new Error("createClientPicker: root element required");
-  root.classList.add("client-picker");
-  root.innerHTML = `
-    <div class="client-picker-input-wrap">
-      <input type="text" class="client-picker-input" placeholder="${escapeHtml(placeholder)}" autocomplete="off" />
-      <div class="picker-dropdown" hidden></div>
-    </div>
-    <div class="client-picker-chip" hidden>
-      <span class="chip-content"></span>
-      <button type="button" class="chip-clear" aria-label="Clear selected client">&times;</button>
-    </div>
-  `;
-
-  const inputWrap = root.querySelector(".client-picker-input-wrap");
-  const input = root.querySelector(".client-picker-input");
-  const dropdown = root.querySelector(".picker-dropdown");
-  const chip = root.querySelector(".client-picker-chip");
-  const chipContent = root.querySelector(".chip-content");
-  const chipClear = root.querySelector(".chip-clear");
-
-  let selected = null;
-  let activeIdx = -1;
-  let currentMatches = [];
-
-  function fullName(data) {
-    const n = [data.firstName, data.middleName, data.lastName].filter(Boolean).join(" ");
-    return n || "(no name)";
-  }
-
-  function getMatches(needleRaw) {
-    const needle = needleRaw.trim().toLowerCase();
-    const pool = needle
-      ? cachedClients.filter((c) => clientMatchesSearch(c, needle))
-      : cachedClients;
-    return pool.slice(0, maxResults);
-  }
-
-  function renderDropdown() {
-    if (currentMatches.length === 0) {
-      dropdown.hidden = true;
-      dropdown.innerHTML = "";
-      return;
-    }
-    dropdown.innerHTML = currentMatches.map((c, i) => {
-      const data = c.data;
-      const aliasSuffix = data.alias ? ` &middot; ${escapeHtml(data.alias)}` : "";
-      const dob = fmtDate(data.dob);
-      const dobSuffix = dob ? ` &middot; DOB ${escapeHtml(dob)}` : "";
-      const cls = "picker-item" + (i === activeIdx ? " active" : "");
-      return `
-        <div class="${cls}" data-idx="${i}">
-          <strong>${escapeHtml(fullName(data))}</strong>
-          <div class="picker-item-meta"><code>${escapeHtml(c.id)}</code>${aliasSuffix}${dobSuffix}</div>
-        </div>
-      `;
-    }).join("");
-    dropdown.hidden = false;
-  }
-
-  function selectMatch(c) {
-    selected = c;
-    chipContent.innerHTML = `<strong>${escapeHtml(fullName(c.data))}</strong> <code>${escapeHtml(c.id)}</code>`;
-    chip.hidden = false;
-    inputWrap.hidden = true;
-    input.value = "";
-    dropdown.hidden = true;
-    if (typeof onChange === "function") {
-      onChange({ clientId: c.id, name: fullName(c.data), data: c.data });
-    }
-  }
-
-  function clearSelection() {
-    const wasSelected = selected;
-    selected = null;
-    chip.hidden = true;
-    inputWrap.hidden = false;
-    input.value = "";
-    if (wasSelected && typeof onChange === "function") {
-      onChange(null);
-    }
-  }
-
-  input.addEventListener("focus", () => {
-    currentMatches = getMatches(input.value);
-    activeIdx = currentMatches.length > 0 ? 0 : -1;
-    renderDropdown();
-  });
-
-  input.addEventListener("input", () => {
-    currentMatches = getMatches(input.value);
-    activeIdx = currentMatches.length > 0 ? 0 : -1;
-    renderDropdown();
-  });
-
-  input.addEventListener("blur", () => {
-    setTimeout(() => { dropdown.hidden = true; }, 150);
-  });
-
-  input.addEventListener("keydown", (e) => {
-    if (currentMatches.length === 0) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      activeIdx = (activeIdx + 1) % currentMatches.length;
-      renderDropdown();
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      activeIdx = (activeIdx - 1 + currentMatches.length) % currentMatches.length;
-      renderDropdown();
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (activeIdx >= 0 && currentMatches[activeIdx]) selectMatch(currentMatches[activeIdx]);
-    } else if (e.key === "Escape") {
-      dropdown.hidden = true;
-    }
-  });
-
-  dropdown.addEventListener("mousedown", (e) => {
-    const item = e.target.closest(".picker-item");
-    if (!item) return;
-    const idx = Number(item.dataset.idx);
-    if (Number.isInteger(idx) && currentMatches[idx]) {
-      selectMatch(currentMatches[idx]);
-    }
-  });
-
-  chipClear.addEventListener("click", () => {
-    clearSelection();
-    input.focus();
-  });
-
-  return {
-    getSelected() {
-      if (!selected) return null;
-      return { clientId: selected.id, name: fullName(selected.data), data: selected.data };
-    },
-    clear: clearSelection,
-    focus() {
-      if (selected) chipClear.focus();
-      else input.focus();
-    },
-  };
-}
+// createClientPicker moved to shared/client-picker.js (imported at top).
+// The self-eval picker init below stays here until features/self-eval.js
+// is extracted (Phase 2.2).
 
 const selfEvalPickerRoot = document.getElementById("self-eval-client-picker");
 if (selfEvalPickerRoot) {
@@ -6404,17 +6250,8 @@ function applyPerEventToRoster() {
 // event + shift across all active clients.
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
-const DAY_LABELS = {
-  monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday",
-  thursday: "Thursday", friday: "Friday", saturday: "Saturday", sunday: "Sunday",
-};
-const EVENT_TYPES = ["appointment", "class", "personal", "meal", "work", "counseling", "doctor", "court", "aa_na", "other"];
-const EVENT_TYPE_LABELS = {
-  appointment: "Appointment", class: "Class", personal: "Personal",
-  meal: "Meal", work: "Work", counseling: "Counseling",
-  doctor: "Doctor", court: "Court", aa_na: "AA/NA Meeting",
-  other: "Other",
-};
+// DAY_LABELS, EVENT_TYPES, EVENT_TYPE_LABELS now live in shared/schedule-helpers.js
+// (imported at top). DAYS stays here until Schedule itself moves (Phase 2.6).
 
 // Standard thrift-store shift template: Mon–Sat × three shifts (9–12, 12–3,
 // 2–5). Seeded into a fresh week so the editor and print matrix always show
@@ -6476,35 +6313,7 @@ function addDays(yyyymmdd, n) {
   return localDateString(d);
 }
 
-function timeToMinutes(hhmm) {
-  if (!hhmm || typeof hhmm !== "string") return null;
-  const m = hhmm.match(/^(\d{1,2}):(\d{2})$/);
-  if (!m) return null;
-  const h = Number(m[1]);
-  const mins = Number(m[2]);
-  if (isNaN(h) || isNaN(mins)) return null;
-  return h * 60 + mins;
-}
-
-function formatTime12(hhmm) {
-  const total = timeToMinutes(hhmm);
-  if (total === null) return hhmm || "";
-  const hours = Math.floor(total / 60);
-  const mins = total % 60;
-  const period = hours >= 12 ? "pm" : "am";
-  const h12 = hours % 12 || 12;
-  return `${h12}:${String(mins).padStart(2, "0")}${period}`;
-}
-
-function eventsOverlap(a, b) {
-  if (!a.day || a.day !== b.day) return false;
-  const aS = timeToMinutes(a.startTime);
-  const aE = timeToMinutes(a.endTime);
-  const bS = timeToMinutes(b.startTime);
-  const bE = timeToMinutes(b.endTime);
-  if (aS === null || aE === null || bS === null || bE === null) return false;
-  return aS < bE && bS < aE;
-}
+// timeToMinutes / formatTime12 / eventsOverlap now live in shared/schedule-helpers.js
 
 // ----- Loaders -----
 
@@ -11270,11 +11079,7 @@ function renderWeeklyScheduleBody(data) {
   return `<div class="inbox-events">${submittedHtml}${diffHtml}</div>`;
 }
 
-function formatEventLi(e) {
-  const day = DAY_LABELS[e.day] || e.day || "—";
-  const t = `${formatTime12(e.startTime)}–${formatTime12(e.endTime)}`;
-  return `<li>${escapeHtml(day)} ${escapeHtml(t)} · ${escapeHtml(EVENT_TYPE_LABELS[e.type] || e.type || "")} · ${escapeHtml(e.title || "")}</li>`;
-}
+// formatEventLi now lives in shared/schedule-helpers.js
 
 // Two events match if day + startTime + endTime + type + title agree.
 // (Location/notes are display-only and don't change "is this the same event".)
