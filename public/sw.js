@@ -6,7 +6,7 @@
 // backend for auth state and writes. Bump SW_VERSION any time we want every
 // installed client to fetch fresh assets after the next visit.
 
-const SW_VERSION = 'gso-thrive-20260524-1223-c315b6e';
+const SW_VERSION = 'gso-thrive-20260524-1249-d9fdb7e';
 const STATIC_CACHE = `static-${SW_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 
@@ -53,13 +53,21 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Same-origin GETs: network-first, fall back to cache (for offline reloads
-  // after the user has already loaded the app once).
+  // Scripts: do NOT intercept. After the Phase 2.1 split into many small
+  // ES modules, SW-side caching of scripts caused stale-module bugs that
+  // outlived SW_VERSION bumps (the browser's module map locked in the
+  // SW's stale response). Cache-Control: no-cache headers on **/*.js
+  // (firebase.json) handle caching correctly at the HTTP layer — let the
+  // browser do it natively.
+  if (req.destination === 'script') return;
+
+  // Same-origin non-script GETs (style/image/font/etc.): network-first,
+  // fall back to cache (for offline reloads after the user has already
+  // loaded the app once).
   if (isSameOrigin(req.url)) {
     event.respondWith(
       fetch(req).then((res) => {
-        // Cache successful responses of static asset types in the background.
-        if (res.ok && (req.destination === 'style' || req.destination === 'script' ||
+        if (res.ok && (req.destination === 'style' ||
                        req.destination === 'image' || req.destination === 'font')) {
           const clone = res.clone();
           caches.open(STATIC_CACHE).then((c) => c.put(req, clone)).catch(() => {});
