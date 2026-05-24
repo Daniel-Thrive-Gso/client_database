@@ -96,7 +96,7 @@ Unblocks every later phase. No `typeof` guards retired here; the win is pure cap
 
 ### Phase 2.2: Self-Eval
 
-- [ ] Create `public/features/self-eval.js` — extracts lines 344-516 from current app.js (submit form, picker init, report listener, render, resolve button, seed button). Exports `initSelfEval()` (called by app.js on staff sign-in) and `stopSelfEval()`. The auth router in app.js calls these directly — `startReportListener()` was never guarded so this doesn't retire a `typeof`, but it cleanly removes ~200 lines.
+- [x] Create `public/features/self-eval.js` — extracts the Self-Eval submit form, picker init, report listener, render, resolve button, seed button. Exports `initSelfEval()` + `stopSelfEval()`, called from the auth router on staff sign-in/out. app.js: 11,649 -> 11,463 lines.
 
 **Smoke-test gate:** Sign in, submit one self-eval, see it in the report, mark resolved, watch it disappear.
 
