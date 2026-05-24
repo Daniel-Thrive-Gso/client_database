@@ -10,7 +10,6 @@ client_database/
 ├── public/                       Static PWA — served by Firebase Hosting
 │   ├── index.html                All markup; ~2.1k lines of forms + tabs
 │   ├── app.js                    All client behavior; ~12k lines (see §3)
-│   ├── config.js                 TENANT — every per-org value
 │   ├── styles.css                Design system + page styles
 │   ├── sw.js                     Service worker (offline shell)
 │   ├── manifest.webmanifest      PWA manifest
@@ -19,8 +18,7 @@ client_database/
 │   └── forms/                    Blank PDFs/DOCX shown to staff
 │
 ├── functions/                    Cloud Functions (Node 22, v2 onCall)
-│   ├── index.mjs                 5 callable functions for client PIN auth
-│   └── config.mjs                Mirror of public/config.js per-tenant fields
+│   └── index.mjs                 5 callable functions for client PIN auth
 │
 ├── admin/                        One-off Node scripts (run by a human)
 │   ├── seed-*.mjs                Catalog + bed seeding
@@ -111,8 +109,8 @@ client_database/
 ```
 LINE      SECTION                                       PURPOSE
 ────────────────────────────────────────────────────────────────────────────
-   1-37   imports + firebaseConfig                      Boot Firebase, apply
-                                                        tenant branding
+   1-37   imports + firebaseConfig                      Boot Firebase
+                                                        and SDK handles
   38- 95  Program constants                             Levels, leadership
                                                         roles, probation
   96-130  Singletons + clientAuth wrappers              app/auth/db/storage/
@@ -264,36 +262,29 @@ Role helpers live inline (Storage rules can't read Firestore) and use the
 same `@thrivegso.com` email and `role=='client'` custom claim checks as
 firestore.rules.
 
-## 7. Tenant config — single source of truth
+## 7. Where GSO constants live
+
+Hardcoded everywhere they're used. No central config file. Search for the
+literal you need:
 
 ```
-                public/config.js
-                ───────────────────
-                  export const TENANT = {
-                    firebase: {...},
-                    staffDomain: "thrivegso.com",
-                    adminEmail: "daniel@thrivegso.com",
-                    clientIdPrefix: "GSO",
-                    clientIdDigits: 5,
-                    orgName, orgShort, orgTagline,
-                    pageTitle, orgNameWithAddress,
-                    photoVideoConsentText,
-                    odh206FormText,
-                    ...
-                  }
-                          │
-        ┌─────────────────┼─────────────────┬─────────────────┐
-        ▼                 ▼                 ▼                 ▼
-  applyTenantBranding   app.js          functions/         firestore.rules
-  walks DOM and sets   imports         config.mjs          storage.rules
-  textContent /        TENANT,         (literal mirror     (literal mirror
-  placeholder /        CLIENT_ID_RE,   of staffDomain,     of @thrivegso.com
-  value on every       isAdminEmail,   REGION,             and admin email —
-  [data-tenant-*]      generateClientId CLIENT_ID_RE)      rules can't import)
-  element at boot
+  STRING                            FILES
+  ────────────────────────────────────────────────────────────────────────
+  "thrivegso.com"                   shared/firebase.js (ALLOWED_DOMAIN),
+                                    functions/index.mjs (requireStaff),
+                                    firestore.rules + storage.rules
+                                      (isStaff helper)
+  "daniel@thrivegso.com"            shared/helpers.js (isAdminEmail),
+                                    firestore.rules + storage.rules
+                                      (isAdmin fallback)
+  /^GSO-\d{5}$/                     shared/helpers.js (CLIENT_ID_RE),
+                                    functions/index.mjs (validClientId)
+  Firebase SDK config object        shared/firebase.js (initializeApp)
+  ODH-206 + photo/video             app.js (PHOTO_VIDEO_CONSENT_TEXT,
+    consent text                      ODH206_TEXT)
+  Org name / address / tagline      app.js + features/inbox.js + index.html
+                                      (inline literals)
 ```
-
-Forking checklist is documented at the top of `public/config.js`.
 
 ## 8. PWA + offline
 
