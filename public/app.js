@@ -6626,10 +6626,12 @@ const DAY_LABELS = {
   monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday",
   thursday: "Thursday", friday: "Friday", saturday: "Saturday", sunday: "Sunday",
 };
-const EVENT_TYPES = ["appointment", "class", "personal", "meal", "other"];
+const EVENT_TYPES = ["appointment", "class", "personal", "meal", "work", "counseling", "doctor", "court", "aa_na", "other"];
 const EVENT_TYPE_LABELS = {
   appointment: "Appointment", class: "Class", personal: "Personal",
-  meal: "Meal", other: "Other",
+  meal: "Meal", work: "Work", counseling: "Counseling",
+  doctor: "Doctor Appt.", court: "Court", aa_na: "AA/NA Meeting",
+  other: "Other",
 };
 
 // Standard thrift-store shift template: Mon–Sat × three shifts (9–12, 12–3,
