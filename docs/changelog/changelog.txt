@@ -11,3 +11,6 @@
 2026-05-20 — Extract remaining tenant-specific prose from index.html / app.js into config.js (see extract-tenant-prose.md)
 2026-05-20 — Refine staff-side design system: Inter headings, single token block, spacing scale, unified labels, REQUIRED tag, demote decorative gold (see staff-design-refinement.md)
 2026-05-21 — Add "Every cup is a hand up." microcopy under price on coffee product cards and PDPs, gated by the `thrive-impact` Shopify tag (see coffee-card-impact-microcopy.md)
+2026-05-24 — Finish in-flight schedule event-types expansion (work, counseling, doctor, court, aa_na): conflict renderer now shows human label instead of raw slug; verified all other renderers + filters handle new types
+2026-05-24 — Client home: read-only "Heads up from staff" notice for unresolved self-evaluations (date + reason); disappears live when staff marks resolved
+2026-05-24 — Drop Role 1 + Role 2 columns from the staff thrift store schedule editor
