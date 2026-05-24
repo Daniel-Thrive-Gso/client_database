@@ -1,54 +1,44 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult,
+  signInWithRedirect, getRedirectResult,
   signInWithCustomToken, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
 import {
-  getFirestore, collection, addDoc, getDocs, query, where, orderBy, limit, onSnapshot,
+  collection, addDoc, getDocs, query, where, orderBy, limit, onSnapshot,
   doc, getDoc, setDoc, deleteDoc, updateDoc, serverTimestamp, Timestamp, writeBatch, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 import {
-  getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
+  ref as storageRef, uploadBytes, getDownloadURL, deleteObject
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-storage.js";
-import {
-  getFunctions, httpsCallable
-} from "https://www.gstatic.com/firebasejs/10.14.0/firebase-functions.js";
 import {
   TENANT,
   CLIENT_ID_RE,
   isAdminEmail,
   generateClientId,
-  applyTenantBranding,
 } from "./config.js";
+import {
+  app, auth, db, storage, functions, provider,
+  clientAuthCreate, clientAuthSignIn, clientAuthReset,
+  clientAuthDisable, clientAuthEnable,
+  ALLOWED_DOMAIN,
+} from "./shared/firebase.js";
+import {
+  LEVEL_KEYS, LEVEL_LABELS, PROBATION_DEFAULT_DAYS,
+  isOnProbation, levelDisplay,
+  escapeHtml, capitalize, fmtClientTimeShort,
+  clientDisplayName, isCurrentUserAdmin,
+} from "./shared/helpers.js";
+import {
+  currentUserRole, currentUserClientId,
+  setCurrentIdentity, clearCurrentIdentity,
+} from "./shared/auth-state.js";
+import {
+  signinSection, appSection, clientAppSection,
+  userBar, userEmail, signinBtn, signoutBtn, signinError,
+} from "./shared/dom-shell.js";
 
-// Populate brand strings (title, header brand-mark, sidebar mark,
-// sign-in hint, client-ID placeholder) from TENANT before anything else runs.
-applyTenantBranding();
-
-// authDomain matches the hosting domain so the redirect handler is same-origin.
-// The clients.thrivegso.com/__/auth/handler URI was added to the Firebase-
-// managed OAuth client (ID prefix 721603594101-ubl0c0nq0o61diurf43bkuri1nkmf95c)
-// in Cloud Console on 2026-05-20, alongside the original .web.app handler from
-// 2026-05-08. Same-origin auth handler sidesteps the third-party-cookie
-// blocking that otherwise breaks the redirect→app session handoff.
-const firebaseConfig = TENANT.firebase;
-
-const ALLOWED_DOMAIN = TENANT.staffDomain;
-
-// ----- Program: client levels, probation, leadership roles -----
-//
-// New intakes default to Alpha + 14-day probation. Probation is encoded as a
-// single Timestamp `probationUntil` — if present and in the future, client is
-// on probation; if null or in the past, they're not. This lets staff extend
-// probation for an incident by setting a new future date without separate
-// "isOnProbation" flags drifting out of sync.
-const LEVEL_KEYS = ["alpha", "bravo", "charlie", "delta"];
-const LEVEL_LABELS = {
-  alpha:   "Alpha",
-  bravo:   "Bravo",
-  charlie: "Charlie",
-  delta:   "Delta",
-};
+// LEADERSHIP_ROLES stays here for now — moves with the intake/client-detail
+// split in Phase 4. INTAKE_BENEFIT_TYPES / INTAKE_BENEFIT_LABELS similarly
+// belong with intake, so they stay too.
 const LEADERSHIP_ROLES = {
   dormLeader:            "Dorm Leader",
   houseLeader:           "House Leader",
@@ -57,21 +47,6 @@ const LEADERSHIP_ROLES = {
   laundry:               "Laundry",
   cookHelper:            "Cook Helper",
 };
-const PROBATION_DEFAULT_DAYS = 14;
-
-function isOnProbation(master) {
-  const t = master?.probationUntil;
-  if (!t) return false;
-  const ms = typeof t.toMillis === "function" ? t.toMillis() : (t.seconds ? t.seconds * 1000 : null);
-  if (ms == null) return false;
-  return ms > Date.now();
-}
-
-// "Alpha-Probation" / "Alpha" / "Bravo" / etc.
-function levelDisplay(master) {
-  const level = LEVEL_LABELS[master?.level] || LEVEL_LABELS.alpha;
-  return isOnProbation(master) ? `${level}-Probation` : level;
-}
 
 // Government benefit types captured on the intake form. Same keys as the
 // status-update form so master.benefits.{type} is a single source of truth.
@@ -93,26 +68,6 @@ const INTAKE_BENEFIT_LABELS = {
   otherBenefit: "Other benefit",
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
-const functions = getFunctions(app, "us-central1");
-
-// Callable wrappers for the clientAuth Cloud Functions (plan §14.1).
-const clientAuthCreate  = httpsCallable(functions, "createForIntake");
-const clientAuthSignIn  = httpsCallable(functions, "signIn");
-const clientAuthReset   = httpsCallable(functions, "resetPin");
-const clientAuthDisable = httpsCallable(functions, "disable");
-const clientAuthEnable  = httpsCallable(functions, "enable");
-
-// Role + clientId derived from the signed-in user's ID-token claims, cached
-// here so per-event writes don't have to re-fetch the token. Set in
-// onAuthStateChanged; cleared on sign-out. `currentUserRole` is one of
-// "admin" | "staff" | "client" | null.
-let currentUserRole = null;
-let currentUserClientId = null;
-
 // Returns the freshly generated PIN, or null on failure (intake save still
 // succeeds; staff can use Reset PIN on the client detail page later).
 async function provisionClientPin(clientId, displayName) {
@@ -125,17 +80,6 @@ async function provisionClientPin(clientId, displayName) {
   }
 }
 
-const provider = new GoogleAuthProvider();
-provider.setCustomParameters({ hd: ALLOWED_DOMAIN, prompt: "select_account" });
-
-const signinSection = document.getElementById("signin-section");
-const appSection = document.getElementById("app-section");
-const clientAppSection = document.getElementById("client-app-section");
-const userBar = document.getElementById("user-bar");
-const userEmail = document.getElementById("user-email");
-const signinBtn = document.getElementById("signin-btn");
-const signoutBtn = document.getElementById("signout-btn");
-const signinError = document.getElementById("signin-error");
 const submitForm = document.getElementById("submit-form");
 const submitStatus = document.getElementById("submit-status");
 const seedBtn = document.getElementById("seed-btn");
@@ -311,8 +255,7 @@ function stopIdleTimeout() { clearIdleTimers(); hideIdleWarning(); }
 onAuthStateChanged(auth, async (user) => {
   // Signed out — reset everything and show the dual sign-in screen.
   if (!user) {
-    currentUserRole = null;
-    currentUserClientId = null;
+    clearCurrentIdentity();
     if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
     if (unsubscribeClients) { unsubscribeClients(); unsubscribeClients = null; }
     if (typeof stopBedsListener === "function") stopBedsListener();
@@ -345,12 +288,13 @@ onAuthStateChanged(auth, async (user) => {
   // role="client" + clientId.
   try {
     const idToken = await user.getIdTokenResult();
-    currentUserRole = idToken.claims.role || null;
-    currentUserClientId = idToken.claims.clientId || null;
+    setCurrentIdentity({
+      role: idToken.claims.role,
+      clientId: idToken.claims.clientId,
+    });
   } catch (err) {
     console.warn("[auth] getIdTokenResult failed", err);
-    currentUserRole = null;
-    currentUserClientId = null;
+    clearCurrentIdentity();
   }
 
   if (currentUserRole === "client") {
@@ -569,15 +513,6 @@ seedBtn.addEventListener("click", async () => {
     seedBtn.disabled = false;
   }
 });
-
-function escapeHtml(s) {
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
 
 // ----- Client master record -----
 //
@@ -896,11 +831,6 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
 // Reads the most recent N accessLog entries (rules: admin-only read) once, then
 // filters client-side — no composite index needed (single-field orderBy on
 // `timestamp`). The tab button is unhidden for admin in onAuthStateChanged.
-
-function isCurrentUserAdmin() {
-  return currentUserRole === "admin"
-    || isAdminEmail(auth.currentUser?.email);
-}
 
 let auditEntries = [];   // [{ id, data }]
 let auditLoaded = false;
@@ -9190,11 +9120,6 @@ function openBedAssignModal(opts) {
   document.addEventListener("keydown", onKey);
 }
 
-function clientDisplayName(d) {
-  return [d.firstName, d.middleName, d.lastName].filter(Boolean).join(" ")
-    || d.alias || "(no name)";
-}
-
 // Modal body when picking a CLIENT for a known bed.
 // Shows: list of active clients (those without a bed first, then those already in another bed).
 function renderBedModalForBed(bedId, existingBed) {
@@ -10466,16 +10391,6 @@ function renderClientTodayFeed() {
       <span class="meta">${escapeHtml(fmtClientTimeShort(e.time))}</span>
     </div>
   `).join("");
-}
-
-function fmtClientTimeShort(ts) {
-  if (!ts?.toDate) return "—";
-  const d = ts.toDate();
-  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-}
-
-function capitalize(s) {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
 }
 
 function showClientActionStatus(text, kind = "ok") {

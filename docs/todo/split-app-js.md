@@ -75,9 +75,9 @@ Each phase = one commit. Each commit is independently deployable and smoke-teste
 
 Lands as one small commit before any module-splitting. Retires the manual cache-buster ritual and ensures every subsequent split phase ships with reliable cache invalidation.
 
-- [ ] Add `scripts/deploy.ps1` (or `scripts/deploy.mjs`) that: computes a version stamp (`git rev-parse --short HEAD`, fallback to UTC timestamp), rewrites `SW_VERSION` in `public/sw.js`, rewrites the `?v=...` on the entry `<script>` tag in `public/index.html`, then calls `firebase deploy --only hosting` (with optional `--only functions`, `--only firestore:rules` pass-through flags).
-- [ ] Document the script at the top of `docs/code-map.md` under the deploy section so the manual `firebase deploy` instruction points here instead.
-- [ ] Run it once end-to-end to confirm the version stamp lands in both files and the deployed app picks up the new SW.
+- [x] Add `scripts/deploy.ps1` (or `scripts/deploy.mjs`) that: computes a version stamp (`git rev-parse --short HEAD`, fallback to UTC timestamp), rewrites `SW_VERSION` in `public/sw.js`, rewrites the `?v=...` on the entry `<script>` tag in `public/index.html`, then calls `firebase deploy --only hosting` (with optional `--only functions`, `--only firestore:rules` pass-through flags). *(commits 028ffea + be8aab7 — second commit fixed a UTF-8 round-trip bug discovered on first production run)*
+- [x] Document the script at the top of `docs/code-map.md` under the deploy section so the manual `firebase deploy` instruction points here instead. *(landed in docs/code-map-logic.md instead, since that file owns the deploy diagram; plus CLAUDE.md at gso/ root)*
+- [x] Run it once end-to-end to confirm the version stamp lands in both files and the deployed app picks up the new SW. *(verified 2026-05-24 — first run revealed the UTF-8 bug, second run shipped clean files)*
 
 **Smoke-test gate:** deploy the current `main` (no code change) via the new script → check DevTools → SW shows the new version stamp → reload → no cached-stale issues.
 
@@ -85,12 +85,12 @@ Lands as one small commit before any module-splitting. Retires the manual cache-
 
 Lay the foundation without changing any feature behavior. After this phase, `app.js` shrinks by maybe 200 lines and the four shared modules exist for later phases to import.
 
-- [ ] Create `public/shared/firebase.js` — exports `{ app, auth, db, storage, functions, provider, clientAuthCreate, clientAuthSignIn, clientAuthReset, clientAuthDisable, clientAuthEnable, ALLOWED_DOMAIN }`. Imports from CDN, calls `initializeApp(TENANT.firebase)`, runs `applyTenantBranding()`.
-- [ ] Create `public/shared/helpers.js` — exports `escapeHtml`, `capitalize`, `isOnProbation`, `levelDisplay`, `clientDisplayName`, `isCurrentUserAdmin`, `currentClientDisplayName`, `fmtClientTimeShort` and any other pure cross-section helpers (audit during the move).
-- [ ] Create `public/shared/auth-state.js` — exports `currentUserRole` and `currentUserClientId` as `let` named exports (ESM live bindings), plus `setCurrentIdentity({ role, clientId })` and `clearCurrentIdentity()`.
-- [ ] Create `public/shared/dom-shell.js` — exports the 7 app-shell DOM refs (signinSection, appSection, clientAppSection, userBar, signinBtn, signoutBtn, signinError, userEmail).
-- [ ] Update `app.js`: replace its inline copies of the moved helpers with `import` statements from the new shared modules. The file still owns everything else.
-- [ ] Bump cache-buster on `<script src="app.js?v=...">`.
+- [x] Create `public/shared/firebase.js` — exports `{ app, auth, db, storage, functions, provider, clientAuthCreate, clientAuthSignIn, clientAuthReset, clientAuthDisable, clientAuthEnable, ALLOWED_DOMAIN }`. Imports from CDN, calls `initializeApp(TENANT.firebase)`, runs `applyTenantBranding()`.
+- [x] Create `public/shared/helpers.js` — exports `escapeHtml`, `capitalize`, `isOnProbation`, `levelDisplay`, `clientDisplayName`, `isCurrentUserAdmin`, `fmtClientTimeShort`, plus the `LEVEL_KEYS` / `LEVEL_LABELS` / `PROBATION_DEFAULT_DAYS` constants `levelDisplay` depends on. *(Divergence: `currentClientDisplayName` deferred to Phase 5 — it reads the client-app-scoped `clientAppMaster` state, which doesn't move until then.)*
+- [x] Create `public/shared/auth-state.js` — exports `currentUserRole` and `currentUserClientId` as `let` named exports (ESM live bindings), plus `setCurrentIdentity({ role, clientId })` and `clearCurrentIdentity()`.
+- [x] Create `public/shared/dom-shell.js` — exports the 7 app-shell DOM refs (signinSection, appSection, clientAppSection, userBar, signinBtn, signoutBtn, signinError, userEmail).
+- [x] Update `app.js`: replace its inline copies of the moved helpers with `import` statements from the new shared modules. The file still owns everything else. *(`app.js` 12,077 → 11,992 lines; 4 new shared modules total 154 lines; no `typeof X === "function"` guards touched yet — that's Phase 2.)*
+- [x] *(Cache-buster bump is now automatic via `scripts/deploy.ps1` — no manual step needed at phase boundary. The next time `deploy.ps1` runs it will stamp sw.js + index.html.)*
 
 **Smoke-test gate:** full checklist (below) must pass before committing.
 
