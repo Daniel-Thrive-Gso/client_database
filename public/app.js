@@ -6158,7 +6158,7 @@ function renderThriftScheduleTable() {
   const body = document.getElementById("thrift-schedule-body");
   if (!body) return;
   if (thriftScheduleShifts.length === 0) {
-    body.innerHTML = `<tr class="empty"><td colspan="8">No shifts. Click "+ Add shift" to add one.</td></tr>`;
+    body.innerHTML = `<tr class="empty"><td colspan="6">No shifts. Click "+ Add shift" to add one.</td></tr>`;
     return;
   }
   body.innerHTML = thriftScheduleShifts.map((s, i) => `
@@ -6167,9 +6167,7 @@ function renderThriftScheduleTable() {
       <td><input type="time" data-field="startTime" value="${escapeHtml(s.startTime || "")}" /></td>
       <td><input type="time" data-field="endTime" value="${escapeHtml(s.endTime || "")}" /></td>
       <td>${clientDropdown(s.clientId, "clientId")}</td>
-      <td><input type="text" data-field="role" value="${escapeHtml(s.role || "")}" placeholder="Register, sorting…" /></td>
       <td class="thrift-slot-divider">${clientDropdown(s.clientId2, "clientId2")}</td>
-      <td><input type="text" data-field="role2" value="${escapeHtml(s.role2 || "")}" placeholder="Register, sorting…" /></td>
       <td><button type="button" class="row-remove" data-action="remove" aria-label="Remove">&times;</button></td>
     </tr>
   `).join("");
