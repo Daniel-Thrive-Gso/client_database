@@ -6630,7 +6630,7 @@ const EVENT_TYPES = ["appointment", "class", "personal", "meal", "work", "counse
 const EVENT_TYPE_LABELS = {
   appointment: "Appointment", class: "Class", personal: "Personal",
   meal: "Meal", work: "Work", counseling: "Counseling",
-  doctor: "Doctor Appt.", court: "Court", aa_na: "AA/NA Meeting",
+  doctor: "Doctor", court: "Court", aa_na: "AA/NA Meeting",
   other: "Other",
 };
 
