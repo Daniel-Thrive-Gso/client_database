@@ -28,7 +28,14 @@ import {
   timingSafeEqual,
 } from "crypto";
 import { promisify } from "util";
-import { STAFF_DOMAIN, REGION, CLIENT_ID_RE } from "./config.mjs";
+
+// GSO identity constants. Staff email domain must match the @thrivegso[.]com
+// pattern in firestore.rules + storage.rules; client ID format must match the
+// shared/helpers.js CLIENT_ID_RE on the app side and the GSO-[0-9]{5} pattern
+// in the rules files.
+const STAFF_DOMAIN = "thrivegso.com";
+const CLIENT_ID_RE = /^GSO-\d{5}$/;
+const REGION = "us-central1";
 
 const scrypt = promisify(_scrypt);
 

@@ -1,20 +1,15 @@
-// Boot the Firebase SDK + tenant branding for the whole app.
+// Boot the Firebase SDK for the whole app.
 //
-// Importing this module triggers initializeApp() and applyTenantBranding()
-// exactly once (ES modules are cached by URL, so subsequent imports re-use the
-// same singletons). Every feature module imports from here for its SDK handles
-// rather than calling Firebase init itself.
+// Importing this module triggers initializeApp() exactly once (ES modules are
+// cached by URL, so subsequent imports re-use the same singletons). Every
+// feature module imports from here for its SDK handles rather than calling
+// Firebase init itself.
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 import { getStorage } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-storage.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-functions.js";
-import { TENANT, applyTenantBranding } from "../config.js";
-
-// Populate brand strings (title, header brand-mark, sidebar mark, sign-in hint,
-// client-ID placeholder) from TENANT before anything else runs.
-applyTenantBranding();
 
 // authDomain matches the hosting domain so the redirect handler is same-origin.
 // The clients.thrivegso.com/__/auth/handler URI was added to the Firebase-
@@ -22,9 +17,16 @@ applyTenantBranding();
 // in Cloud Console on 2026-05-20, alongside the original .web.app handler from
 // 2026-05-08. Same-origin auth handler sidesteps the third-party-cookie
 // blocking that otherwise breaks the redirect → app session handoff.
-export const ALLOWED_DOMAIN = TENANT.staffDomain;
+export const ALLOWED_DOMAIN = "thrivegso.com";
 
-export const app = initializeApp(TENANT.firebase);
+export const app = initializeApp({
+  apiKey: "AIzaSyBQj50m9HeEBDZ1b2eklTQEhVD63hzDCBM",
+  authDomain: "clients.thrivegso.com",
+  projectId: "admin-automation-74110",
+  storageBucket: "admin-automation-74110.firebasestorage.app",
+  messagingSenderId: "721603594101",
+  appId: "1:721603594101:web:bc4c79f1484f11540c753c",
+});
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);

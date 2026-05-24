@@ -3,8 +3,6 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <!-- Page title and brand text are populated from public/config.js at boot
-       via applyTenantBranding(); the literals below are first-paint defaults. -->
   <title>GSO Thrive Program</title>
 
   <!-- PWA: clients install this to their home screen and launch it like an
@@ -17,7 +15,7 @@
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="GSO Thrive" data-tenant-content="appleMobileWebAppTitle" />
+  <meta name="apple-mobile-web-app-title" content="GSO Thrive" />
   <meta name="mobile-web-app-capable" content="yes" />
 
   <link rel="stylesheet" href="styles.css?v=20260520-gold-1" />
@@ -25,7 +23,7 @@
 <body>
   <header>
     <div class="brand">
-      <span class="brand-mark"><span class="brand-gso" data-tenant-text="orgShort">GSO</span><span class="brand-thrive" data-tenant-text="orgTagline">THRIVE</span></span>
+      <span class="brand-mark"><span class="brand-gso">GSO</span><span class="brand-thrive">THRIVE</span></span>
     </div>
   </header>
 
@@ -35,7 +33,7 @@
 
       <div class="signin-staff">
         <h3>Staff</h3>
-        <p data-tenant-html="staffDomainHint">Use your <strong>@thrivegso.com</strong> Google account.</p>
+        <p>Use your <strong>@thrivegso.com</strong> Google account.</p>
         <button id="signin-btn" type="button">Sign in with Google</button>
         <p id="signin-error" class="error" hidden></p>
       </div>
@@ -48,8 +46,8 @@
         <form id="client-signin-form">
           <label><span class="lbl">Client ID</span>
             <div class="client-id-input">
-              <span class="client-id-prefix" data-tenant-text="clientIdPrefixDisplay" aria-hidden="true">GSO-</span>
-              <input id="client-signin-id-digits" type="text" inputmode="numeric" autocomplete="username" maxlength="5" pattern="[0-9]{5}" data-tenant-placeholder="clientIdDigitsExample" placeholder="12345" required />
+              <span class="client-id-prefix" aria-hidden="true">GSO-</span>
+              <input id="client-signin-id-digits" type="text" inputmode="numeric" autocomplete="username" maxlength="5" pattern="[0-9]{5}" placeholder="12345" required />
             </div>
           </label>
           <label><span class="lbl">PIN</span>
@@ -64,8 +62,8 @@
     <section id="app-section" hidden>
       <aside class="sidebar">
         <div class="sidebar-mark">
-          <span class="brand-gso" data-tenant-text="orgShort">GSO</span>
-          <span class="brand-thrive" data-tenant-text="orgTagline">THRIVE</span>
+          <span class="brand-gso">GSO</span>
+          <span class="brand-thrive">THRIVE</span>
         </div>
         <nav class="sidenav" role="tablist">
           <div class="nav-section">
@@ -244,7 +242,7 @@
               </fieldset>
 
               <fieldset class="section">
-                <legend><span data-tenant-text="orgShort">GSO</span> Program</legend>
+                <legend>GSO Program</legend>
                 <p class="note" style="margin-top: 0;">Level (Alpha → Bravo → Charlie → Delta), probation status, and current leadership role.</p>
                 <div id="client-program-summary" class="program-summary"></div>
                 <form id="client-program-form" class="program-form" autocomplete="off">
@@ -417,7 +415,7 @@
                     </label>
                   </div>
                   <label>Notes <span class="muted">(optional — short note for documents/benefits/milestones; full paragraph(s) for Panel Results)</span>
-                    <textarea name="notes" rows="3" placeholder="e.g. Picked up SSN replacement at SSA office; or — Started at Thrive Coffee 2026-05-08; or — Panel review notes describing progress and next steps." data-tenant-placeholder="notesPlaceholderExample"></textarea>
+                    <textarea name="notes" rows="3" placeholder="e.g. Picked up SSN replacement at SSA office; or — Started at Thrive Coffee 2026-05-08; or — Panel review notes describing progress and next steps."></textarea>
                   </label>
                   <div class="status-update-actions">
                     <button type="submit" id="status-update-save">Save update</button>
@@ -448,7 +446,7 @@
               <fieldset class="section" id="client-phi-records-section">
                 <legend>PHI records (received under ODH 206)</legend>
                 <p class="note">Scans of medical, mental-health, or
-                  substance-abuse records <span data-tenant-text="orgShort">GSO</span> received <em>on paper</em> from a
+                  substance-abuse records GSO received <em>on paper</em> from a
                   provider under a signed ODH 206 authorization. Keep the paper
                   original in the locked cabinet — uploading here puts a copy in
                   the access-controlled system instead of a physical-only file.
@@ -836,7 +834,7 @@
 
             <fieldset class="section reentry-section">
               <legend>Re-entry (optional)</legend>
-              <p class="note">If this client is returning to <span data-tenant-text="orgShort">GSO</span>, search for them here. The form will pre-fill from their existing record, and the save will append a new intake to the same client ID. Leave blank for a brand-new client.</p>
+              <p class="note">If this client is returning to GSO, search for them here. The form will pre-fill from their existing record, and the save will append a new intake to the same client ID. Leave blank for a brand-new client.</p>
               <div id="reentry-client-picker" class="client-picker"></div>
               <div id="reentry-banner" class="reentry-banner" hidden></div>
               <p id="reentry-prefill-status" class="note" hidden></p>
@@ -1142,9 +1140,9 @@
             <fieldset class="section">
               <legend>6. History & Income</legend>
 
-              <p class="subsection-header">Prior contact with <span data-tenant-text="orgShort">GSO</span></p>
+              <p class="subsection-header">Prior contact with GSO</p>
               <div class="row">
-                <label>Previously a guest at <span data-tenant-text="orgShort">GSO</span>
+                <label>Previously a guest at GSO
                   <select name="previousGuest">
                     <option value="">—</option>
                     <option value="yes">Yes</option>
@@ -1368,7 +1366,7 @@
                     <input name="odh206DisclosingParty" type="text" />
                   </label>
                   <label>Receiving party
-                    <input name="odh206ReceivingParty" type="text" value="Good Samaritan Outreach" data-tenant-value="orgName" />
+                    <input name="odh206ReceivingParty" type="text" value="Good Samaritan Outreach" />
                   </label>
                   <label>Purpose
                     <input name="odh206Purpose" type="text" placeholder="Service coordination, SSDI, …" />
@@ -1391,7 +1389,7 @@
 
               <p class="subsection-header">Exit interview</p>
               <div class="checkboxes">
-                <label><input type="checkbox" name="acknowledgesExitInterview" /> Guest acknowledges they will receive an exit interview when leaving <span data-tenant-text="orgShort">GSO</span></label>
+                <label><input type="checkbox" name="acknowledgesExitInterview" /> Guest acknowledges they will receive an exit interview when leaving GSO</label>
               </div>
             </fieldset>
 
@@ -1446,7 +1444,7 @@
       <div class="tab-content" id="tab-exit">
         <div class="panel">
           <h2>Record an Exit</h2>
-          <p class="note">Documents a guest leaving <span data-tenant-text="orgShort">GSO</span>. Sets the client's status to <code>exited</code>, records housing destination and acknowledgements, and captures guest + staff signatures.</p>
+          <p class="note">Documents a guest leaving GSO. Sets the client's status to <code>exited</code>, records housing destination and acknowledgements, and captures guest + staff signatures.</p>
 
           <form id="exit-form" autocomplete="off">
 
@@ -1487,7 +1485,7 @@
                 <p class="subsection-header">Acknowledgements</p>
                 <div class="checkboxes">
                   <label><input type="checkbox" name="ackPersonalItems48h" /> Guest understands personal items must be picked up within 48 hours; afterwards they will be donated or disposed of</label>
-                  <label><input type="checkbox" name="ackMail" /> Guest understands <span data-tenant-text="orgShort">GSO</span> will not hold mail; Change of Address must be filed with the Post Office</label>
+                  <label><input type="checkbox" name="ackMail" /> Guest understands GSO will not hold mail; Change of Address must be filed with the Post Office</label>
                 </div>
 
                 <p class="subsection-header">Return eligibility</p>
@@ -1498,7 +1496,7 @@
                   </label>
                 </div>
                 <div class="checkboxes">
-                  <label><input type="checkbox" name="noReturn" /> Do NOT allow this client to return to <span data-tenant-text="orgShort">GSO</span></label>
+                  <label><input type="checkbox" name="noReturn" /> Do NOT allow this client to return to GSO</label>
                   <label><input type="checkbox" name="warnAtReturn" /> Warn staff to review this client's past history before doing a re-entry intake</label>
                 </div>
 
@@ -1734,7 +1732,7 @@
       <div class="modal-form" id="odh206-gen-modal-body">
         <p id="odh206-gen-summary" class="note"></p>
         <label class="form-row">Disclosing party (whose records will be released)
-          <input type="text" id="odh206-gen-disclosing" placeholder="e.g. McAlester Regional Health Center" data-tenant-placeholder="localFacilityExample" />
+          <input type="text" id="odh206-gen-disclosing" placeholder="e.g. McAlester Regional Health Center" />
         </label>
         <fieldset class="form-group">
           <legend>Information to be shared</legend>
@@ -1756,7 +1754,7 @@
         </fieldset>
         <fieldset class="form-group">
           <legend>Expiration</legend>
-          <label><input type="radio" name="odh206-gen-expiry" value="event" checked /> <span data-tenant-text="expirationOnExitEvent">Upon leaving Good Samaritan Outreach Program</span></label>
+          <label><input type="radio" name="odh206-gen-expiry" value="event" checked /> Upon leaving Good Samaritan Outreach Program</label>
           <label><input type="radio" name="odh206-gen-expiry" value="date" /> Specific date
             <input type="date" id="odh206-gen-expiry-date" disabled />
           </label>

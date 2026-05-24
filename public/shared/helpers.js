@@ -1,9 +1,29 @@
 // Cross-section pure helpers + the small set of program constants they
 // depend on. No mutable state; safe to import from anywhere.
 
-import { isAdminEmail } from "../config.js";
 import { auth } from "./firebase.js";
 import { currentUserRole } from "./auth-state.js";
+
+// ----- GSO identity constants -----
+
+// Client ID format: GSO-NNNNN (5 random digits, zero-padded).
+export const CLIENT_ID_RE = /^GSO-\d{5}$/;
+
+// Returns true if `email` is the admin (daniel@thrivegso.com). Used as a
+// fallback before the user's session has refreshed the `admin` custom claim.
+export function isAdminEmail(email) {
+  if (typeof email !== "string") return false;
+  return email.toLowerCase() === "daniel@thrivegso.com";
+}
+
+// Generate a fresh random client ID. Random within range, not sequential —
+// keeps consecutive intakes from leaking adjacent IDs to clients.
+export function generateClientId() {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  const n = buf[0] % 100000;
+  return `GSO-${String(n).padStart(5, "0")}`;
+}
 
 // ----- Program: client levels, probation -----
 //

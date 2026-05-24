@@ -10,12 +10,6 @@ import {
   ref as storageRef, uploadBytes, getDownloadURL, deleteObject
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-storage.js";
 import {
-  TENANT,
-  CLIENT_ID_RE,
-  isAdminEmail,
-  generateClientId,
-} from "./config.js";
-import {
   app, auth, db, storage, functions, provider,
   clientAuthCreate, clientAuthSignIn, clientAuthReset,
   clientAuthDisable, clientAuthEnable,
@@ -26,6 +20,7 @@ import {
   isOnProbation, levelDisplay,
   escapeHtml, capitalize, fmtClientTimeShort, fmtDate, fmtTimestamp,
   clientDisplayName, isCurrentUserAdmin,
+  CLIENT_ID_RE, isAdminEmail, generateClientId,
 } from "./shared/helpers.js";
 import {
   cachedClients, clientsSearchText,
@@ -294,7 +289,7 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  // Staff path: enforce @{TENANT.staffDomain} domain. Clients never reach this branch
+  // Staff path: enforce @thrivegso.com domain. Clients never reach this branch
   // because their custom-token sign-in carries no email.
   const email = (user.email || "").toLowerCase();
   if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) {
@@ -336,7 +331,7 @@ onAuthStateChanged(auth, async (user) => {
 // recorded in the plan section 12.2: random reduces the risk of clients
 // typing one digit off and landing on another client's account once
 // self-service login ships. Format constants + generateClientId() live in
-// config.js so they stay in sync across app, Functions, and rules.
+// shared/helpers.js.
 
 // Saves the full intake bundle in a single Firestore transaction. Two
 // modes, dispatched by `opts.existingClientId`:
@@ -1006,7 +1001,7 @@ if (intakeForm) {
       const expDateStr = fd.get("odh206ExpirationDate");
       odh206Data = {
         disclosingParty: trimOrNull(fd.get("odh206DisclosingParty")),
-        receivingParty: trimOrNull(fd.get("odh206ReceivingParty")) || TENANT.orgName,
+        receivingParty: trimOrNull(fd.get("odh206ReceivingParty")) || "Good Samaritan Outreach",
         purpose: trimOrNull(fd.get("odh206Purpose")),
         expirationDate: expDateStr ? Timestamp.fromDate(new Date(expDateStr + "T00:00:00")) : null,
         expirationEvent: trimOrNull(fd.get("odh206ExpirationEvent")),
@@ -1774,9 +1769,62 @@ if (sigStaffClearBtn) sigStaffClearBtn.addEventListener("click", () => sigStaffP
 // ----- Consent modal: reusable popup that displays the full text of a
 // consent form and resolves with the client's accept/deny decision. -----
 
-const PHOTO_VIDEO_CONSENT_TEXT = TENANT.photoVideoConsentText;
+const PHOTO_VIDEO_CONSENT_TEXT = `Photo / Video Release Form
 
-const ODH206_TEXT = TENANT.odh206FormText;
+I hereby authorize Good Samaritan Outreach and those acting pursuant to its authority to:
+
+(i) record my likeness and/or voice on a video, audio, photographic, digital, electronic, or any other medium;
+
+(ii) use my name and biographical material in connection with such recording; and
+
+(iii) use, reproduce, exhibit, and/or distribute my name, biographical material, and recordings in any medium (e.g. print publications, video, internet, etc.) for promotional, advertising, educational, and/or other lawful purposes.
+
+I release and waive any claims or rights of compensation or ownership regarding such uses and understand that all such recordings shall remain the property of Good Samaritan Outreach.
+
+I certify that I am 18 years of age or older or that my parent / guardian has signed below.`;
+
+const ODH206_TEXT = `OKLAHOMA STANDARD AUTHORIZATION TO USE OR SHARE PROTECTED HEALTH INFORMATION (PHI)
+
+Receiving party:
+  Good Samaritan Outreach
+  20 E. Cherokee Ave, McAlester, OK 74501
+
+Information that may be shared (selectable on this form):
+  • Psychotherapy Notes — if selected, NO other categories may be on the same authorization. A separate authorization is required for any additional information.
+  • Entire Medical Record
+  • Billing Information
+  • Mental Health Records
+  • Substance Abuse Records
+
+Disclosure purposes (selectable on this form):
+  • Insurance
+  • Continued Treatment
+  • Legal
+  • At my or my representative's request
+
+By voluntarily signing this authorization, I understand that:
+
+  • I authorize the use or disclosure of my PHI as described above for the purpose(s) listed.
+
+  • I have the right to withdraw permission for the release of my information. I can revoke this authorization at any time. Revocation must be made in writing to the person/organization disclosing the information and will not affect information that has already been used or disclosed.
+
+  • I have the right to receive a copy of this authorization.
+
+  • Unless the purpose of this authorization is to determine payment of a claim for benefits, signing this authorization will not affect my eligibility for benefits, treatment, enrollment, or payment of claims.
+
+  • My medical information may indicate that I have a communicable and/or non-communicable disease (including, but not limited to, hepatitis, syphilis, gonorrhea, HIV / AIDS) and/or that I have or have been treated for psychological / psychiatric conditions or substance abuse.
+
+  • I may change this authorization at any time by writing to the person/organization disclosing my PHI.
+
+  • I cannot restrict information that may have already been shared based on this authorization.
+
+  • Information used or disclosed pursuant to this authorization may be subject to redisclosure by the recipient and may no longer be protected by HIPAA.
+
+Unless revoked or otherwise indicated, this authorization expires one year from the date of signature, or upon the occurrence of the event entered on this form.
+
+Oklahoma State Department of Health, Community and Family Health Services / Administration. HIPAA Document — retained for a minimum of 6 years.
+
+ODH 206 (August 2014)`;
 
 const consentModal = document.getElementById("consent-modal");
 const consentModalTitle = document.getElementById("consent-modal-title");
@@ -1861,7 +1909,7 @@ const odh206ReviewedInput = document.querySelector('input[name="odh206TextReview
 if (odh206ReadBtn) {
   odh206ReadBtn.addEventListener("click", async () => {
     const result = await openConsentModal({
-      title: TENANT.releaseFormTitle,
+      title: "Oklahoma Standard Authorization (ODH 206)",
       body: ODH206_TEXT,
       acceptLabel: "I have read this",
       denyLabel: "Cancel",
@@ -2861,7 +2909,7 @@ async function loadClientOdh206(cid) {
       return `
         <div class="odh206-row">
           <div class="odh206-row-header">
-            <strong>${escapeHtml(data.disclosingParty || "(disclosing party not recorded)")} &rarr; ${escapeHtml(data.receivingParty || TENANT.orgName)}</strong>
+            <strong>${escapeHtml(data.disclosingParty || "(disclosing party not recorded)")} &rarr; ${escapeHtml(data.receivingParty || "Good Samaritan Outreach")}</strong>
             <span class="meta">${escapeHtml(fmtTimestamp(data.signedAt) || "")}</span>
           </div>
           <dl class="kv-grid">
@@ -2900,7 +2948,7 @@ async function loadClientOdh206(cid) {
 // the positions are correct. Don't rename without re-inspecting the
 // template.
 
-const GSO_RECEIVING_PARTY = TENANT.orgNameWithAddress;
+const GSO_RECEIVING_PARTY = "Good Samaritan Outreach / 20 E. Cherokee Ave; McAlester OK 74501";
 
 const ODH206_FIELDS = {
   patientName:        "OKLAHOMA STANDARD AUTHORIZATION TO USE OR SHARE PROTECTED HEALTH INFORMATION PHI",
@@ -3081,7 +3129,7 @@ async function handleOdh206Generate() {
     }
     expirationDate = expiryDateStr;
   } else {
-    expirationEvent = TENANT.expirationOnExitEvent;
+    expirationEvent = "Upon leaving Good Samaritan Outreach Program";
   }
 
   confirmBtn.disabled = true;
@@ -5231,7 +5279,7 @@ if (exitForm) {
   if (exitPickerRoot) {
     exitClientPicker = createClientPicker({
       root: exitPickerRoot,
-      placeholder: `Search for the guest exiting ${TENANT.orgShort}…`,
+      placeholder: "Search for the guest exiting GSO…",
       onChange(client) {
         exitSelectedClient = client;
         if (client) {
@@ -6147,7 +6195,7 @@ function renderClientScheduleTable() {
       <td><input type="time" data-field="endTime" value="${escapeHtml(e.endTime || "")}" /></td>
       <td>${typeDropdown(e.type)}</td>
       <td><input type="text" data-field="title" value="${escapeHtml(e.title || "")}" placeholder="Doctor visit, NA meeting…" /></td>
-      <td><input type="text" data-field="location" value="${escapeHtml(e.location || "")}" placeholder="${escapeHtml(TENANT.clinicLocationExample)}…" /></td>
+      <td><input type="text" data-field="location" value="${escapeHtml(e.location || "")}" placeholder="Tulsa, McAlester clinic…" /></td>
       <td><input type="text" data-field="notes" value="${escapeHtml(e.notes || "")}" /></td>
       <td><button type="button" class="row-remove" data-action="remove" aria-label="Remove">&times;</button></td>
     </tr>
@@ -6714,7 +6762,7 @@ function renderThriftPrintHtml(weekStart, shifts) {
 
   if (!slots.length) {
     return `
-      <h1>${TENANT.orgShort} Thrift Store Schedule</h1>
+      <h1>GSO Thrift Store Schedule</h1>
       <p class="thrift-print-week">Week of ${escapeHtml(fmtFull(start))} (${escapeHtml(headerRange)})</p>
       <p class="thrift-print-empty">No shifts scheduled for this week.</p>
     `;
@@ -6748,7 +6796,7 @@ function renderThriftPrintHtml(weekStart, shifts) {
   }).join("");
 
   return `
-    <h1>${TENANT.orgShort} Thrift Store Schedule</h1>
+    <h1>GSO Thrift Store Schedule</h1>
     <p class="thrift-print-week">Week of ${escapeHtml(fmtFull(start))} (${escapeHtml(headerRange)})</p>
     <table class="thrift-print-table">
       <thead><tr><th class="thrift-print-shift">Shift</th>${headerCells}</tr></thead>
@@ -9595,7 +9643,7 @@ let clientMyScheduleLastWeekStart = null;
 // ----- Client sign-in form (PIN-based) -----
 // The Client ID field is split visually into a static "GSO-" prefix and a
 // digit-only input. We only ever read/write the digit portion here; the
-// prefix is baked into the DOM by config.js applyTenantBranding().
+// prefix is baked into the DOM directly in index.html.
 (function bindClientSignInForm() {
   const form = document.getElementById("client-signin-form");
   if (!form) return;
@@ -9604,16 +9652,14 @@ let clientMyScheduleLastWeekStart = null;
   const errEl = document.getElementById("client-signin-error");
   const btn = document.getElementById("client-signin-btn");
 
-  const cidPrefix = TENANT.clientIdPrefix;
-  const cidDigits = TENANT.clientIdDigits;
-  const digitsRe = new RegExp(`^\\d{${cidDigits}}$`);
+  const digitsRe = /^\d{5}$/;
 
   // If a client pastes a full ID (e.g. "GSO-12345") or a value with stray
-  // characters, strip to digits and keep the last cidDigits so the visible
-  // prefix still makes sense.
+  // characters, strip to digits and keep the last 5 so the visible prefix
+  // still makes sense.
   digitsInput.addEventListener("paste", (e) => {
     const raw = (e.clipboardData || window.clipboardData)?.getData("text") || "";
-    const digits = raw.replace(/\D+/g, "").slice(-cidDigits);
+    const digits = raw.replace(/\D+/g, "").slice(-5);
     if (digits) {
       e.preventDefault();
       digitsInput.value = digits;
@@ -9626,7 +9672,7 @@ let clientMyScheduleLastWeekStart = null;
     const digits = digitsInput.value.trim();
     const pin = pinInput.value.trim();
     if (!digitsRe.test(digits)) {
-      errEl.textContent = `Client ID must be a ${cidDigits}-digit number.`;
+      errEl.textContent = "Client ID must be a 5-digit number.";
       errEl.hidden = false;
       return;
     }
@@ -9635,7 +9681,7 @@ let clientMyScheduleLastWeekStart = null;
       errEl.hidden = false;
       return;
     }
-    const clientId = `${cidPrefix}-${digits}`;
+    const clientId = `GSO-${digits}`;
     btn.disabled = true;
     btn.textContent = "Signing in…";
     try {

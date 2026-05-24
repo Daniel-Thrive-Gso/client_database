@@ -14,7 +14,6 @@ import {
   onSnapshot, runTransaction, serverTimestamp, Timestamp,
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 import { auth, db, ALLOWED_DOMAIN } from "../shared/firebase.js";
-import { TENANT } from "../config.js";
 import { escapeHtml, clientDisplayName, fmtDate } from "../shared/helpers.js";
 import { AUDIT_ACTIONS, logAccess } from "../shared/audit-log-writer.js";
 import { currentUserRole } from "../shared/auth-state.js";
@@ -553,7 +552,7 @@ async function approveStaffRequestSubmission(submissionId, subRef) {
 // full description, submitted/approved timestamps, and an approving-staff
 // signature line.
 function printStaffRequest(submissionId, data) {
-  const orgName = TENANT?.orgName || "Organization";
+  const orgName = "Good Samaritan Outreach";
   const subj = REQUEST_SUBJECT_LABELS[data.subject] || data.subject || "(no subject)";
   const desc = (data.description || "").trim();
   const submittedAt = data.submittedAt?.toDate
