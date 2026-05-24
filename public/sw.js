@@ -6,7 +6,7 @@
 // backend for auth state and writes. Bump SW_VERSION any time we want every
 // installed client to fetch fresh assets after the next visit.
 
-const SW_VERSION = 'gso-thrive-20260524-1639-da924fc';
+const SW_VERSION = 'gso-thrive-20260524-1700-7822d37';
 const STATIC_CACHE = `static-${SW_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 
