@@ -2,7 +2,8 @@
 
 **Source:** "Split public/app.js (12k lines, one ESM) into native ES modules — no bundler, no build step, keep firebase deploy unchanged. Goal: make duplicate top-level declarations impossible across files (silent SyntaxError has bitten twice) and make per-section reasoning tractable"
 **Created:** 2026-05-23
-**Status:** planned
+**Status:** in-progress, awaiting re-refinement
+**Progress as of 2026-05-24:** Phase 0 + Phase 1 + the Audit Log slice of Phase 2 shipped to production. The remaining Phase 2-5 work needs re-refinement (see "Reality check 2026-05-24" below).
 
 ## Goal
 
@@ -94,7 +95,23 @@ Lay the foundation without changing any feature behavior. After this phase, `app
 
 **Smoke-test gate:** full checklist (below) must pass before committing.
 
-### Phase 2: Auth-router refactor + leaf feature modules
+### Reality check 2026-05-24
+
+While executing Phase 2, the "four leaves" framing turned out to be wrong. Only the Audit Log is a true leaf. The other three are coupling hubs:
+
+- **Self-Eval** uses `createClientPicker`, which reads `cachedClients` (the Clients-cache, originally planned for Phase 3).
+- **Beds** has substantial cross-section coupling to the per-client bed fieldset that lives in Client Detail (originally Phase 4).
+- **Inbox** depends on weekly-schedule diff rendering helpers in Schedule (originally Phase 3).
+- **Clients-cache** itself reaches into Client Detail (`renderClientBedAssignment`, `renderClientProgram`, `openClientDetail`) and into Schedule/Reports init hooks.
+
+Doing Phase 2 "as written" would have either (a) dragged huge chunks of Client Detail + Schedule into the same commit, or (b) kept `typeof` guards alive inside the new feature modules, defeating the point.
+
+What shipped before the pause:
+- **Phase 2 slice 1 — Audit Log:** `shared/audit-log-writer.js` + `features/audit-log.js`. 1 `typeof` guard retired (`resetAuditState`). Other guards (beds, inbox, check-in-out, staff-per-event, client-app-listeners) remain.
+
+Phases 2-5 to be re-refined. The next round should break the work into ~10 smaller, truly-self-contained slices, each one independently deployable + verifiable.
+
+### Phase 2 (original, superseded by re-refinement): Auth-router refactor + leaf feature modules
 
 This is the load-bearing phase. After this, `onAuthStateChanged` no longer uses `typeof X === "function"` guards — every start/stop hook is a real `import`. Four leaf features (Self-Eval, Audit, Beds, Inbox) move out at the same time, because each is what the auth router calls.
 
