@@ -38,8 +38,15 @@ import {
 import {
   DAY_LABELS, EVENT_TYPES, EVENT_TYPE_LABELS,
   timeToMinutes, formatTime12, eventsOverlap, formatEventLi,
+  scheduleExpiresAt, SCHEDULE_TTL_DAYS_AFTER_WEEK,
 } from "./shared/schedule-helpers.js";
 import { createClientPicker } from "./shared/client-picker.js";
+import {
+  CLIENT_SUB_TYPES, REQUEST_SUBJECT_LABELS,
+  STATUS_UPDATE_TYPE_LABELS, STATUS_UPDATE_DOCUMENT_TYPES,
+  STATUS_UPDATE_BENEFIT_TYPES, STATUS_UPDATE_REVIEW_TYPES,
+  statusUpdateCategory,
+} from "./shared/program-constants.js";
 import {
   currentUserRole, currentUserClientId,
   setCurrentIdentity, clearCurrentIdentity,
@@ -51,6 +58,7 @@ import {
 import { AUDIT_ACTIONS, logAccess } from "./shared/audit-log-writer.js";
 import { resetAuditState } from "./features/audit-log.js";
 import { initSelfEval, stopSelfEval } from "./features/self-eval.js";
+import { startInboxListener, stopInboxListener, invalidateInboxThriftCache } from "./features/inbox.js";
 
 // LEADERSHIP_ROLES stays here for now — moves with the intake/client-detail
 // split in Phase 4. INTAKE_BENEFIT_TYPES / INTAKE_BENEFIT_LABELS similarly
@@ -236,7 +244,7 @@ onAuthStateChanged(auth, async (user) => {
     storeStopClientsListener();
     if (typeof stopBedsListener === "function") stopBedsListener();
     if (typeof stopCheckInOutListener === "function") stopCheckInOutListener();
-    if (typeof stopInboxListener === "function") stopInboxListener();
+    stopInboxListener();
     if (typeof stopStaffPerEventListener === "function") stopStaffPerEventListener();
     if (typeof stopClientAppListeners === "function") stopClientAppListeners();
     stopIdleTimeout();
@@ -311,7 +319,7 @@ onAuthStateChanged(auth, async (user) => {
   if (typeof startBedsListener === "function") startBedsListener();
   if (typeof startCheckInOutListener === "function") startCheckInOutListener();
   if (typeof mountCheckInOutQuickPicker === "function") mountCheckInOutQuickPicker();
-  if (typeof startInboxListener === "function") startInboxListener();
+  startInboxListener();
   if (typeof startStaffPerEventListener === "function") startStaffPerEventListener();
   if (typeof loadMedicationCatalog === "function") {
     loadMedicationCatalog().catch(() => {});
@@ -5316,69 +5324,7 @@ async function loadClientExits(cid) {
 // log-an-update form. Composite index (clientId asc, occurredOn desc) backs
 // the per-client query.
 
-const STATUS_UPDATE_TYPE_LABELS = {
-  // Documents
-  socialSecurityCard: "Social Security card",
-  birthCertificate: "Birth certificate",
-  stateId: "State ID / driver's license",
-  hsDiploma: "HS diploma / GED",
-  hsTranscript: "HS transcript",
-  collegeDiploma: "College diploma / certificate",
-  collegeTranscript: "College transcript",
-  medicalInsurance: "Medical insurance",
-  vaCard: "VA card",
-  dd214: "DD-214",
-  voterRegistration: "Voter registration",
-  // Healthcare connections (treated as milestones internally)
-  connectedDoctor: "Connected with a doctor",
-  connectedCounselor: "Connected with a counselor",
-  // Government benefits (own category — ongoing, with monthly amounts)
-  foodStamps: "Food stamps (SNAP)",
-  ssi: "SSI",
-  ssdi: "SSDI",
-  rsdi: "RSDI / Social Security retirement",
-  vaDisability: "VA disability",
-  vaRetirement: "VA retirement",
-  retirement: "Retirement (other)",
-  workersComp: "Workers' compensation",
-  tribalBenefits: "Tribal benefits",
-  otherBenefit: "Other benefit",
-  // Life milestones
-  employment: "Got a job",
-  housing: "Got housing",
-  bankAccount: "Opened a bank account",
-  phone: "Got a phone",
-  startedSchool: "Started college / trade school",
-  sobrietyMilestone: "Sobriety milestone",
-  programCompletion: "Completed a program",
-  lostEmployment: "Lost job",
-  // Reviews — paragraph-form notes kept as history; latest mirrors to
-  // master.reviews.{updateType}. Panel Results is the monthly progress
-  // review that drives the client's next steps in the program.
-  panelResults: "Panel Results",
-};
-
-const STATUS_UPDATE_DOCUMENT_TYPES = new Set([
-  "socialSecurityCard", "birthCertificate", "stateId",
-  "hsDiploma", "hsTranscript", "collegeDiploma", "collegeTranscript",
-  "medicalInsurance", "vaCard", "dd214", "voterRegistration",
-]);
-
-const STATUS_UPDATE_BENEFIT_TYPES = new Set([
-  "foodStamps", "ssi", "ssdi", "rsdi", "vaDisability", "vaRetirement",
-  "retirement", "workersComp", "tribalBenefits", "otherBenefit",
-]);
-
-const STATUS_UPDATE_REVIEW_TYPES = new Set([
-  "panelResults",
-]);
-
-function statusUpdateCategory(updateType) {
-  if (STATUS_UPDATE_DOCUMENT_TYPES.has(updateType)) return "document";
-  if (STATUS_UPDATE_BENEFIT_TYPES.has(updateType)) return "benefit";
-  if (STATUS_UPDATE_REVIEW_TYPES.has(updateType)) return "review";
-  return "milestone";
-}
+// STATUS_UPDATE_* taxonomy + statusUpdateCategory now live in shared/program-constants.js.
 
 async function loadClientStatusUpdates(cid) {
   const el = document.getElementById("client-status-updates");
@@ -6682,7 +6628,7 @@ async function saveThriftSchedule() {
     // Inbox conflict detection reads canonical thrift shifts from a cache;
     // invalidate the entry for this week so the next Inbox render fetches
     // the just-saved state.
-    inboxThriftCache.delete(scheduleWeekStart);
+    invalidateInboxThriftCache(scheduleWeekStart);
 
     await logAccess(AUDIT_ACTIONS.UPDATE, "thriftStoreSchedule", scheduleWeekStart, {
       shiftCount: shifts.length,
@@ -8988,22 +8934,15 @@ const CHECKINOUT_REASONS = {
 };
 const CHECKINOUT_TTL_DAYS = 21;
 const PER_EVENT_TTL_DAYS = 21;        // mealLog, showerLog — same shape as checkInOuts
-const SCHEDULE_TTL_DAYS_AFTER_WEEK = 21; // clientWeeklySchedule, thriftStoreSchedule
 const RECENT_ACTIVITY_HOURS = 24;
+
+// SCHEDULE_TTL_DAYS_AFTER_WEEK + scheduleExpiresAt now live in
+// shared/schedule-helpers.js (imported at top).
 
 // expiresAt for per-event log writes (mealLog, showerLog, checkInOuts).
 // Always submittedAt + 21 days; Firestore TTL collects on the field.
 function perEventExpiresAt(now = new Date()) {
   return Timestamp.fromDate(new Date(now.getTime() + PER_EVENT_TTL_DAYS * 86400 * 1000));
-}
-
-// expiresAt for weekly-schedule docs (per-client schedule + master thrift
-// schedule). The week itself ends 7 days after weekStart (Monday); we keep
-// the doc for SCHEDULE_TTL_DAYS_AFTER_WEEK additional days for review.
-function scheduleExpiresAt(weekStartStr) {
-  const d = new Date(weekStartStr + "T00:00:00");
-  d.setDate(d.getDate() + 7 + SCHEDULE_TTL_DAYS_AFTER_WEEK);
-  return Timestamp.fromDate(d);
 }
 
 function checkInOutReasonLabel(key) {
@@ -9982,26 +9921,7 @@ async function onClientMealTap(meal) {
 // Mid-week schedule updates use the same submission shape — they just target
 // the current week instead of next.
 
-const CLIENT_SUB_TYPES = {
-  weeklySchedule: "Weekly schedule",
-  infoUpdate: "Info update",
-  staffRequest: "Help request",
-};
-
-// Subjects clients can pick when filing a "help request" for staff.
-// Stored keys are stable; labels can be reworded without breaking history.
-const REQUEST_SUBJECT_LABELS = {
-  school:             "School",
-  veteransBenefits:   "Veterans Benefits",
-  socialSecurity:     "Social Security",
-  employment:         "Employment",
-  identificationDocs: "Identification Documents",
-  housing:            "Housing",
-  legal:              "Legal",
-  medical:            "Medical",
-  counseling:         "Counseling",
-  other:              "Other",
-};
+// CLIENT_SUB_TYPES + REQUEST_SUBJECT_LABELS now live in shared/program-constants.js.
 
 // Update types a client may self-report. Mirrors STATUS_UPDATE_TYPE_LABELS but
 // excludes purely staff-tracked categories (none today — keep them aligned).
@@ -10643,636 +10563,8 @@ function renderClientSubmissionsList(rows) {
 }
 
 // ============================================================
-// Staff Inbox — pending client submissions (§13.11 deferred → 2026-05-08)
+// Staff Inbox moved to features/inbox.js (Phase 2.3).
 // ============================================================
-//
-// Live listener on pendingClientSubmissions. Pending shown by default;
-// a toggle switches to the last 30 of any status so staff can revisit
-// recent decisions. Approve → runTransaction copies the events array
-// into clientWeeklySchedule/{cid}-{weekStart} (set+merge so existing
-// staff edits survive) and flips status="approved". Reject → updateDoc
-// sets status="rejected" + reviewNote. Both write audit entries.
-
-let inboxUnsub = null;
-let inboxRows = [];
-let inboxFilter = "pending";
-
-function stopInboxListener() {
-  if (inboxUnsub) { inboxUnsub(); inboxUnsub = null; }
-}
-
-function startInboxListener() {
-  stopInboxListener();
-  // Subscribe to pending OR last-30; we re-subscribe when the filter toggles.
-  const q = inboxFilter === "pending"
-    ? query(
-        collection(db, "pendingClientSubmissions"),
-        where("status", "==", "pending"),
-        orderBy("submittedAt", "desc"),
-        limit(50),
-      )
-    : query(
-        collection(db, "pendingClientSubmissions"),
-        orderBy("submittedAt", "desc"),
-        limit(30),
-      );
-  inboxUnsub = onSnapshot(q, async (snap) => {
-    inboxRows = snap.docs.map((d) => ({ id: d.id, data: d.data() }));
-    renderInbox();
-    refreshInboxBadge();
-    // Background: fetch the current canonical schedule for each pending
-    // weekly-schedule row so we can show staff a diff of what will change on
-    // approve. Re-renders when done. One-shot reads — Inbox is small.
-    await hydrateInboxCanonicalEvents();
-    renderInbox();
-  }, (err) => {
-    console.warn("[inbox] listener error", err);
-    const el = document.getElementById("inbox-status");
-    if (el) {
-      el.textContent = `Could not load inbox: ${err.message}`;
-      el.classList.add("error");
-    }
-  });
-}
-
-function refreshInboxBadge() {
-  // Badge only counts pending. When filter is "all", we re-derive from rows.
-  const badge = document.getElementById("inbox-pending-badge");
-  if (!badge) return;
-  let pendingCount;
-  if (inboxFilter === "pending") {
-    pendingCount = inboxRows.length;
-  } else {
-    pendingCount = inboxRows.filter((r) => r.data.status === "pending").length;
-  }
-  if (pendingCount > 0) {
-    badge.textContent = String(pendingCount);
-    badge.hidden = false;
-  } else {
-    badge.hidden = true;
-  }
-}
-
-function renderInbox() {
-  const list = document.getElementById("inbox-list");
-  const status = document.getElementById("inbox-status");
-  if (!list) return;
-  if (!inboxRows.length) {
-    if (status) {
-      status.textContent = inboxFilter === "pending"
-        ? "Inbox clear — no pending submissions."
-        : "No recent submissions.";
-      status.classList.remove("error");
-    }
-    list.innerHTML = "";
-    return;
-  }
-  if (status) status.textContent = "";
-
-  list.innerHTML = inboxRows.map(({ id, data }) => {
-    const submittedAt = data.submittedAt?.toDate
-      ? data.submittedAt.toDate().toLocaleString()
-      : "—";
-    const reviewedAt = data.reviewedAt?.toDate
-      ? data.reviewedAt.toDate().toLocaleString()
-      : null;
-    const kindLabel = CLIENT_SUB_TYPES[data.submissionType] || data.submissionType;
-    const bodyHtml = data.submissionType === "infoUpdate"
-      ? renderInfoUpdateBody(data)
-      : data.submissionType === "staffRequest"
-        ? renderStaffRequestBody(data)
-        : renderWeeklyScheduleBody(data);
-
-    const conflicts = computeSubmissionConflicts(data);
-    const conflictsHtml = conflicts.length
-      ? `<div class="inbox-row-conflicts">${
-          conflicts.map((c) => escapeHtml(c)).join("<br>")
-        }</div>`
-      : "";
-
-    const reviewNoteHtml = data.reviewNote
-      ? `<p class="note" style="margin-top:0.3rem;">Note: ${escapeHtml(data.reviewNote)}</p>`
-      : "";
-
-    const approveLabel = data.submissionType === "infoUpdate"
-      ? "Approve &amp; record"
-      : data.submissionType === "staffRequest"
-        ? "Approve"
-        : "Approve &amp; copy to schedule";
-    const printBtnHtml = data.submissionType === "staffRequest" && data.status === "approved"
-      ? ` <button class="ghost" data-act="print" data-id="${escapeHtml(id)}" type="button">Print request</button>`
-      : "";
-    const actionsHtml = data.status === "pending"
-      ? `<div class="inbox-row-actions">
-           <button class="approve" data-act="approve" data-id="${escapeHtml(id)}" type="button">${approveLabel}</button>
-           <button class="reject"  data-act="reject"  data-id="${escapeHtml(id)}" type="button">Reject…</button>
-         </div>`
-      : `<div class="inbox-row-actions"><span class="meta">${escapeHtml(data.status)}${reviewedAt ? ` · ${escapeHtml(reviewedAt)} · ${escapeHtml(data.reviewedBy || "")}` : ""}</span>${printBtnHtml}</div>`;
-
-    const headerSuffix = data.submissionType === "weeklySchedule"
-      ? ` · week of ${escapeHtml(data.weekStart || "—")}`
-      : data.submissionType === "infoUpdate"
-        ? ` · ${escapeHtml(STATUS_UPDATE_TYPE_LABELS[data.updateType] || data.updateType || "info update")}`
-        : data.submissionType === "staffRequest"
-          ? ` · ${escapeHtml(REQUEST_SUBJECT_LABELS[data.subject] || data.subject || "request")}`
-          : "";
-
-    return `
-      <div class="inbox-row is-${escapeHtml(data.status)}">
-        <div class="inbox-row-head">
-          <strong>${escapeHtml(data.clientName || data.clientId)}</strong>
-          <span class="meta">${escapeHtml(kindLabel)}${headerSuffix} · submitted ${escapeHtml(submittedAt)}</span>
-        </div>
-        <div class="meta">Client ID: <code>${escapeHtml(data.clientId)}</code></div>
-        ${bodyHtml}
-        ${conflictsHtml}
-        ${reviewNoteHtml}
-        ${actionsHtml}
-      </div>`;
-  }).join("");
-
-  list.querySelectorAll("[data-act]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const act = btn.dataset.act;
-      const id = btn.dataset.id;
-      if (act === "approve") {
-        const row = inboxRows.find((r) => r.id === id);
-        const isWeekly = row?.data.submissionType === "weeklySchedule";
-        const msg = isWeekly
-          ? "Approve this submission? The submitted events replace the canonical schedule wholesale — review the diff above before confirming."
-          : "Approve this submission?";
-        if (!confirm(msg)) return;
-        await approveSubmission(id, btn);
-      } else if (act === "reject") {
-        const note = (window.prompt("Optional note for the client (why rejected). Leave blank to skip.") || "").trim();
-        await rejectSubmission(id, note, btn);
-      } else if (act === "print") {
-        const row = inboxRows.find((r) => r.id === id);
-        if (row) printStaffRequest(row.id, row.data);
-      }
-    });
-  });
-}
-
-// Conflict checks for a pending submission. For "weeklySchedule":
-//   1. Intra-submission overlaps (two submitted events on the same day).
-//   2. Cross-canonical: submitted events that overlap a thrift shift this
-//      client is already on the canonical thrift schedule for that week
-//      (hydrated by hydrateInboxCanonicalEvents). Staff still has the
-//      override — approve will replace the weekly schedule but won't touch
-//      the thrift shift, so the conflict stays after approve unless staff
-//      also edits the thrift schedule.
-function computeSubmissionConflicts(data) {
-  if (data.submissionType !== "weeklySchedule") return [];
-  const out = [];
-  const events = data.events || [];
-  // (1) intra-submission
-  for (let i = 0; i < events.length; i++) {
-    for (let j = i + 1; j < events.length; j++) {
-      if (eventsOverlap(events[i], events[j])) {
-        out.push(`Overlap: ${DAY_LABELS[events[i].day] || events[i].day} ${formatTime12(events[i].startTime)}–${formatTime12(events[i].endTime)} vs ${formatTime12(events[j].startTime)}–${formatTime12(events[j].endTime)}`);
-      }
-    }
-  }
-  // (2) cross-canonical vs canonical thrift shifts for this client+week
-  const thriftShifts = Array.isArray(data.__canonicalThriftShifts) ? data.__canonicalThriftShifts : [];
-  for (const shift of thriftShifts) {
-    for (const ev of events) {
-      if (eventsOverlap(shift, ev)) {
-        const day = DAY_LABELS[shift.day] || shift.day || "—";
-        const evDesc = ev.title || EVENT_TYPE_LABELS[ev.type] || ev.type || "event";
-        const role = shift.role ? ` (${shift.role})` : "";
-        out.push(`Thrift conflict: ${day} ${formatTime12(shift.startTime)}–${formatTime12(shift.endTime)} thrift shift${role} vs ${formatTime12(ev.startTime)}–${formatTime12(ev.endTime)} ${evDesc}`);
-      }
-    }
-  }
-  return out;
-}
-
-function renderWeeklyScheduleBody(data) {
-  const submitted = data.events || [];
-  const submittedHtml = submitted.length
-    ? `<ul>${submitted.map(formatEventLi).join("")}</ul>`
-    : `<p class="note">No events.</p>`;
-
-  // If we've loaded the current canonical schedule (status=pending only),
-  // surface a diff so staff sees exactly what approving will change. Approve
-  // is still a wholesale events-array replace — the diff is *informational*,
-  // not a per-event merge. Plan §11 / BUILD_LOG §13.12.
-  const canonical = data.__canonicalEvents;
-  let diffHtml = "";
-  if (Array.isArray(canonical) && data.status === "pending") {
-    const diff = diffEventLists(canonical, submitted);
-    const counts = `${diff.added.length} new · ${diff.removed.length} removed · ${diff.kept.length} unchanged`;
-    if (canonical.length === 0 && submitted.length > 0) {
-      diffHtml = `
-        <div class="inbox-diff note" style="margin-top:0.5rem;">
-          No existing schedule for this week — approve will create it (${counts}).
-        </div>`;
-    } else if (diff.added.length + diff.removed.length === 0) {
-      diffHtml = `
-        <div class="inbox-diff note" style="margin-top:0.5rem;">
-          No changes vs. current schedule (${counts}).
-        </div>`;
-    } else {
-      const addedHtml = diff.added.length
-        ? `<p class="meta" style="margin:0.2rem 0;color:#0a7a2a;"><strong>+ Adding ${diff.added.length}</strong></p><ul style="margin:0;">${diff.added.map(formatEventLi).join("")}</ul>`
-        : "";
-      const removedHtml = diff.removed.length
-        ? `<p class="meta" style="margin:0.2rem 0;color:#b22222;"><strong>− Removing ${diff.removed.length}</strong> <span class="muted">(currently on the canonical schedule; approve will drop)</span></p><ul style="margin:0;">${diff.removed.map(formatEventLi).join("")}</ul>`
-        : "";
-      diffHtml = `
-        <details class="inbox-diff" style="margin-top:0.5rem;" open>
-          <summary><strong>Changes vs. current schedule</strong> — ${counts}</summary>
-          ${addedHtml}
-          ${removedHtml}
-        </details>`;
-    }
-  }
-
-  return `<div class="inbox-events">${submittedHtml}${diffHtml}</div>`;
-}
-
-// formatEventLi now lives in shared/schedule-helpers.js
-
-// Two events match if day + startTime + endTime + type + title agree.
-// (Location/notes are display-only and don't change "is this the same event".)
-function eventKey(e) {
-  return [e.day || "", e.startTime || "", e.endTime || "", e.type || "", (e.title || "").trim()].join("|");
-}
-
-function diffEventLists(current, submitted) {
-  const curKeys = new Set(current.map(eventKey));
-  const subKeys = new Set(submitted.map(eventKey));
-  const added = submitted.filter((e) => !curKeys.has(eventKey(e)));
-  const removed = current.filter((e) => !subKeys.has(eventKey(e)));
-  const kept = submitted.filter((e) => curKeys.has(eventKey(e)));
-  return { added, removed, kept };
-}
-
-// Caches so repeated re-renders don't re-fetch. clientWeeklySchedule is keyed
-// by docId (clientId-weekStart); thriftStoreSchedule is keyed by weekStart and
-// shared across all pending submissions for the same week.
-const inboxCanonicalCache = new Map(); // docId -> events array
-const inboxThriftCache = new Map();    // weekStart -> all shifts array
-async function hydrateInboxCanonicalEvents() {
-  const pending = inboxRows.filter((r) =>
-    r.data.status === "pending"
-    && r.data.submissionType === "weeklySchedule"
-    && r.data.clientId
-    && r.data.weekStart);
-
-  // Fan out canonical-schedule reads + thrift-schedule reads in parallel.
-  await Promise.all(pending.flatMap((row) => [
-    hydrateInboxRowCanonical(row),
-    hydrateInboxRowThrift(row),
-  ]));
-}
-
-async function hydrateInboxRowCanonical(row) {
-  const docId = `${row.data.clientId}-${row.data.weekStart}`;
-  if (inboxCanonicalCache.has(docId)) {
-    row.data.__canonicalEvents = inboxCanonicalCache.get(docId);
-    return;
-  }
-  try {
-    const snap = await getDoc(doc(db, "clientWeeklySchedule", docId));
-    const events = snap.exists() && Array.isArray(snap.data().events)
-      ? snap.data().events.map((e) => ({ ...e }))
-      : [];
-    inboxCanonicalCache.set(docId, events);
-    row.data.__canonicalEvents = events;
-  } catch (err) {
-    console.warn("[inbox] could not load canonical schedule", docId, err);
-    row.data.__canonicalEvents = []; // best-effort: hide the diff if unreadable
-  }
-}
-
-async function hydrateInboxRowThrift(row) {
-  const weekStart = row.data.weekStart;
-  const clientId = row.data.clientId;
-  let allShifts;
-  if (inboxThriftCache.has(weekStart)) {
-    allShifts = inboxThriftCache.get(weekStart);
-  } else {
-    try {
-      const snap = await getDoc(doc(db, "thriftStoreSchedule", weekStart));
-      allShifts = snap.exists() && Array.isArray(snap.data().shifts)
-        ? snap.data().shifts.map((s) => ({ ...s }))
-        : [];
-      inboxThriftCache.set(weekStart, allShifts);
-    } catch (err) {
-      console.warn("[inbox] could not load thrift schedule for", weekStart, err);
-      allShifts = [];
-    }
-  }
-  // Filter to this client's shifts. Each shift can have two assigned clients
-  // (clientId / clientId2); match either slot. Empty-client template rows are
-  // ignored.
-  row.data.__canonicalThriftShifts = allShifts.filter((s) =>
-    s.clientId === clientId || s.clientId2 === clientId
-  );
-}
-
-function renderInfoUpdateBody(data) {
-  const label = STATUS_UPDATE_TYPE_LABELS[data.updateType] || data.updateType || "(unknown)";
-  const cat = statusUpdateCategory(data.updateType);
-  const when = fmtDate(data.occurredOn) || "—";
-  const notesHtml = data.notes
-    ? `<p class="note" style="margin-top:0.3rem;">Client notes: ${escapeHtml(data.notes)}</p>`
-    : "";
-  return `
-    <div class="inbox-events">
-      <p style="margin:0.2rem 0;"><strong>${escapeHtml(label)}</strong> <span class="muted">(${escapeHtml(cat)})</span></p>
-      <p class="meta" style="margin:0.1rem 0;">Occurred: ${escapeHtml(when)}</p>
-      ${notesHtml}
-    </div>`;
-}
-
-function renderStaffRequestBody(data) {
-  const subj = REQUEST_SUBJECT_LABELS[data.subject] || data.subject || "(no subject)";
-  const desc = (data.description || "").trim();
-  const descHtml = desc
-    ? `<p style="margin:0.3rem 0; white-space: pre-wrap;">${escapeHtml(desc)}</p>`
-    : `<p class="note" style="margin:0.3rem 0;">(no description)</p>`;
-  return `
-    <div class="inbox-events">
-      <p style="margin:0.2rem 0;"><strong>Subject:</strong> ${escapeHtml(subj)}</p>
-      ${descHtml}
-    </div>`;
-}
-
-async function approveSubmission(submissionId, btn) {
-  const subRef = doc(db, "pendingClientSubmissions", submissionId);
-  if (btn) btn.disabled = true;
-  try {
-    const subSnap = await getDoc(subRef);
-    if (!subSnap.exists()) throw new Error("Submission no longer exists");
-    const sub = subSnap.data();
-    if (sub.status !== "pending") {
-      throw new Error(`Submission is already ${sub.status}.`);
-    }
-    if (sub.submissionType === "weeklySchedule") {
-      await approveWeeklyScheduleSubmission(submissionId, subRef);
-    } else if (sub.submissionType === "infoUpdate") {
-      await approveInfoUpdateSubmission(submissionId, subRef);
-    } else if (sub.submissionType === "staffRequest") {
-      await approveStaffRequestSubmission(submissionId, subRef);
-    } else {
-      throw new Error(`Unsupported submissionType: ${sub.submissionType}`);
-    }
-  } catch (err) {
-    alert(`Approve failed: ${err.message || err}`);
-    if (btn) btn.disabled = false;
-  }
-}
-
-async function approveWeeklyScheduleSubmission(submissionId, subRef) {
-  let scheduleDocId = null;
-  let approvedClientId = null;
-  let approvedWeekStart = null;
-  let approvedEventCount = 0;
-  await runTransaction(db, async (txn) => {
-    const subSnap = await txn.get(subRef);
-    if (!subSnap.exists()) throw new Error("Submission no longer exists");
-    const sub = subSnap.data();
-    if (sub.status !== "pending") {
-      throw new Error(`Submission is already ${sub.status}.`);
-    }
-    const cid = sub.clientId;
-    const weekStart = sub.weekStart;
-    if (!cid || !weekStart) throw new Error("Submission missing clientId or weekStart");
-    const docId = `${cid}-${weekStart}`;
-    scheduleDocId = docId;
-    approvedClientId = cid;
-    approvedWeekStart = weekStart;
-    approvedEventCount = (sub.events || []).length;
-    // Resolve display name from the canonical client record so the
-    // consolidated/thrift views show "First Last" instead of falling back
-    // to the GSO-NNNNN clientId. Pending submission may carry clientName,
-    // but cachedClients is current; submission name is a snapshot.
-    const cachedClient = cachedClients.find((c) => c.id === cid);
-    const clientName = cachedClient
-      ? clientDisplayName(cachedClient.data)
-      : (sub.clientName || cid);
-    const schedRef = doc(db, "clientWeeklySchedule", docId);
-    const schedSnap = await txn.get(schedRef); // must precede writes
-    const base = {
-      clientId: cid,
-      clientName,
-      weekStart,
-      weekStartTimestamp: Timestamp.fromDate(new Date(weekStart + "T00:00:00")),
-      events: sub.events || [],
-      updatedAt: serverTimestamp(),
-      updatedBy: auth.currentUser.email,
-      lastApprovedSubmissionId: submissionId,
-      expiresAt: scheduleExpiresAt(weekStart),
-    };
-    if (!schedSnap.exists()) {
-      base.createdAt = serverTimestamp();
-      base.createdBy = auth.currentUser.email;
-    }
-    txn.set(schedRef, base, { merge: true });
-    txn.update(subRef, {
-      status: "approved",
-      reviewedAt: serverTimestamp(),
-      reviewedBy: auth.currentUser.email,
-    });
-  });
-  // Invalidate the canonical-events cache for this docId so a follow-up
-  // submission's diff reflects the just-approved state.
-  inboxCanonicalCache.delete(scheduleDocId);
-  await logAccess(AUDIT_ACTIONS.APPROVE, "pendingClientSubmission", submissionId, {
-    clientId: approvedClientId, weekStart: approvedWeekStart,
-    eventCount: approvedEventCount,
-  });
-  await logAccess(AUDIT_ACTIONS.UPDATE, "clientWeeklySchedule", scheduleDocId, {
-    clientId: approvedClientId, weekStart: approvedWeekStart,
-    surface: "inbox-approve", eventCount: approvedEventCount,
-  });
-}
-
-// Approve an "infoUpdate" submission. Mirrors the staff status-update save
-// path (clientStatusUpdates addDoc + dot-path mirror onto clients/{cid}).
-// Not a single transaction because addDoc on a new collection needs the
-// generated ID before we can write the master mirror — same pattern as the
-// staff form's two-step (write history → update master).
-async function approveInfoUpdateSubmission(submissionId, subRef) {
-  const subSnap = await getDoc(subRef);
-  const sub = subSnap.data();
-  const cid = sub.clientId;
-  const updateType = sub.updateType;
-  const occurredOn = sub.occurredOn; // already a Timestamp on the submission
-  if (!cid || !updateType || !occurredOn) {
-    throw new Error("Submission missing clientId, updateType, or occurredOn.");
-  }
-  if (!STATUS_UPDATE_TYPE_LABELS[updateType]) {
-    throw new Error(`Unknown updateType: ${updateType}`);
-  }
-  const category = statusUpdateCategory(updateType);
-  const userEmail = auth.currentUser.email;
-
-  // Write the history doc first so the audit trail exists even if the master
-  // mirror update fails afterward (matches staff status-update flow).
-  const histRef = await addDoc(collection(db, "clientStatusUpdates"), {
-    clientId: cid,
-    updateType,
-    category,
-    occurredOn,
-    notes: sub.notes || null,
-    recordedBy: userEmail,
-    createdAt: serverTimestamp(),
-    createdBy: userEmail,
-    sourceSubmissionId: submissionId,
-  });
-
-  const masterPatch = {};
-  masterPatch[`${category}s.${updateType}`] = {
-    obtained: true,
-    obtainedOn: occurredOn,
-    lastUpdateId: histRef.id,
-    lastUpdateAt: serverTimestamp(),
-    lastUpdateBy: userEmail,
-  };
-  await updateDoc(doc(db, "clients", cid), masterPatch);
-
-  await updateDoc(subRef, {
-    status: "approved",
-    reviewedAt: serverTimestamp(),
-    reviewedBy: userEmail,
-    approvedStatusUpdateId: histRef.id,
-  });
-
-  await logAccess(AUDIT_ACTIONS.APPROVE, "pendingClientSubmission", submissionId, {
-    clientId: cid, submissionType: "infoUpdate", updateType, category,
-    surface: "inbox-approve",
-  });
-  await logAccess(AUDIT_ACTIONS.CREATE, "clientStatusUpdate", histRef.id, {
-    clientId: cid, updateType, category,
-    surface: "inbox-approve-infoUpdate",
-  });
-}
-
-// Approve a "staffRequest" submission. Only flips status — help requests
-// aren't facts about the client, they're a one-off ask, so nothing mirrors
-// to the canonical record. After approval, staff can print the request
-// via the Print button rendered on approved staffRequest inbox rows.
-async function approveStaffRequestSubmission(submissionId, subRef) {
-  const subSnap = await getDoc(subRef);
-  const sub = subSnap.data();
-  const userEmail = auth.currentUser.email;
-  await updateDoc(subRef, {
-    status: "approved",
-    reviewedAt: serverTimestamp(),
-    reviewedBy: userEmail,
-  });
-  await logAccess(AUDIT_ACTIONS.APPROVE, "pendingClientSubmission", submissionId, {
-    clientId: sub.clientId, submissionType: "staffRequest",
-    subject: sub.subject, surface: "inbox-approve",
-  });
-}
-
-// Open a printable view of an approved help request in a new window and
-// trigger the browser's print dialog. Includes client identifiers, subject,
-// full description, submitted/approved timestamps, and an approving-staff
-// signature line.
-function printStaffRequest(submissionId, data) {
-  const orgName = (typeof TENANT !== "undefined" && TENANT?.orgName) || "Organization";
-  const subj = REQUEST_SUBJECT_LABELS[data.subject] || data.subject || "(no subject)";
-  const desc = (data.description || "").trim();
-  const submittedAt = data.submittedAt?.toDate
-    ? data.submittedAt.toDate().toLocaleString()
-    : "—";
-  const reviewedAt = data.reviewedAt?.toDate
-    ? data.reviewedAt.toDate().toLocaleString()
-    : "—";
-  const clientLine = `${data.clientName || data.clientId || ""}${data.clientId && data.clientName ? ` (${data.clientId})` : ""}`;
-  const html = `<!doctype html>
-<html><head><meta charset="utf-8"><title>Help Request — ${escapeHtml(subj)}</title>
-<style>
-  body { font-family: Arial, Helvetica, sans-serif; color: #111; max-width: 7in; margin: 0.6in auto; padding: 0 0.5in; }
-  h1 { font-size: 18pt; margin: 0 0 0.2rem; }
-  h2 { font-size: 13pt; margin: 1rem 0 0.25rem; border-bottom: 1px solid #999; padding-bottom: 0.1rem; }
-  .meta { color: #555; font-size: 10pt; margin: 0.1rem 0; }
-  dl { display: grid; grid-template-columns: max-content 1fr; column-gap: 0.6rem; row-gap: 0.25rem; margin: 0.5rem 0; }
-  dt { font-weight: bold; color: #333; }
-  dd { margin: 0; }
-  .desc { white-space: pre-wrap; margin: 0.4rem 0; }
-  .sig-line { display: inline-block; border-bottom: 1px solid #333; min-width: 3in; height: 0.4in; vertical-align: bottom; }
-  .sig-row { margin-top: 1rem; }
-  .footer { color: #666; font-size: 9pt; margin-top: 1.5rem; }
-  @media print { @page { margin: 0.5in; } }
-</style>
-</head><body>
-  <h1>${escapeHtml(orgName)} — Help Request</h1>
-  <p class="meta">Submission ID: ${escapeHtml(submissionId)}</p>
-
-  <h2>Client</h2>
-  <dl>
-    <dt>Name:</dt><dd>${escapeHtml(clientLine)}</dd>
-    <dt>Submitted:</dt><dd>${escapeHtml(submittedAt)}</dd>
-    <dt>Approved:</dt><dd>${escapeHtml(reviewedAt)} by ${escapeHtml(data.reviewedBy || "—")}</dd>
-  </dl>
-
-  <h2>Subject</h2>
-  <p>${escapeHtml(subj)}</p>
-
-  <h2>Description</h2>
-  <p class="desc">${escapeHtml(desc) || "(no description)"}</p>
-
-  <div class="sig-row">
-    <p><strong>Staff handling:</strong> <span class="sig-line"></span></p>
-    <p><strong>Date:</strong> <span class="sig-line" style="min-width: 1.5in;"></span></p>
-  </div>
-
-  <p class="footer">Printed ${escapeHtml(new Date().toLocaleString())}</p>
-<script>window.addEventListener("load", function(){ window.print(); });<\/script>
-</body></html>`;
-  const win = window.open("", "_blank", "width=900,height=1100");
-  if (!win) {
-    alert("Print blocked. Allow popups for this site, then click Print again.");
-    return;
-  }
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
-}
-
-async function rejectSubmission(submissionId, note, btn) {
-  const subRef = doc(db, "pendingClientSubmissions", submissionId);
-  if (btn) btn.disabled = true;
-  try {
-    await updateDoc(subRef, {
-      status: "rejected",
-      reviewedAt: serverTimestamp(),
-      reviewedBy: auth.currentUser.email,
-      reviewNote: note || null,
-    });
-    await logAccess(AUDIT_ACTIONS.REJECT, "pendingClientSubmission", submissionId, {
-      surface: "inbox-reject", hasNote: !!note,
-    });
-  } catch (err) {
-    alert(`Reject failed: ${err.message || err}`);
-    if (btn) btn.disabled = false;
-  }
-}
-
-// Filter toggle — re-subscribe with the new query.
-(function bindInboxFilter() {
-  const radios = document.querySelectorAll('input[name="inbox-filter"]');
-  if (!radios.length) return;
-  radios.forEach((r) => {
-    r.addEventListener("change", () => {
-      if (!r.checked) return;
-      inboxFilter = r.value;
-      // Resubscribe; the listener will repopulate inboxRows.
-      if (currentUserRole === "admin" || currentUserRole === "staff" ||
-          (auth.currentUser && (auth.currentUser.email || "").endsWith(`@${ALLOWED_DOMAIN}`))) {
-        startInboxListener();
-      }
-    });
-  });
-})();
 
 // Visible "sign out of app" button inside the client greeting — clients
 // don't see the staff user-bar, so they need an obvious way to leave.

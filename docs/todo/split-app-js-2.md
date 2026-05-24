@@ -102,7 +102,7 @@ Unblocks every later phase. No `typeof` guards retired here; the win is pure cap
 
 ### Phase 2.3: Inbox
 
-- [ ] Create `public/features/inbox.js` — extracts lines ~11030-11600 (listener, filter toggle, render, conflicts, hydrate-canonical-events). Imports schedule formatters from `shared/schedule-helpers.js` (built in 2.1). Exports `startInboxListener()`, `stopInboxListener()`. Retires the `typeof startInboxListener` + `typeof stopInboxListener` guards in the auth router.
+- [x] Create `public/features/inbox.js` — extracts the entire inbox section (listener, filter toggle, render, conflicts, hydrate-canonical-events, all 3 approval handlers, printStaffRequest, rejectSubmission). Exports `startInboxListener`, `stopInboxListener`, plus `invalidateInboxThriftCache` (called by Schedule's thrift-save handler). Retires the `typeof startInboxListener` + `typeof stopInboxListener` guards in the auth router. *(Also extracted: `shared/program-constants.js` with `STATUS_UPDATE_*` + `CLIENT_SUB_TYPES` + `REQUEST_SUBJECT_LABELS` + `statusUpdateCategory`; and `scheduleExpiresAt` + `SCHEDULE_TTL_DAYS_AFTER_WEEK` to `shared/schedule-helpers.js`.)* app.js: 11,463 -> 10,755 lines.
 
 **Smoke-test gate:** Sign in as a client, submit an info-update + a weekly-schedule. Sign back in as staff, open Inbox, see both rows, approve one, watch it leave.
 

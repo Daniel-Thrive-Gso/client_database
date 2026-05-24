@@ -1,9 +1,24 @@
 // Schedule formatters + constants used both by the Schedule tab itself
 // (will move to features/schedule.js in Phase 2.6) and by Inbox (which
 // displays weekly-schedule submissions with conflict diffs). Pure — no
-// state, no Firestore.
+// state.
 
+import { Timestamp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 import { escapeHtml } from "./helpers.js";
+
+// clientWeeklySchedule / thriftStoreSchedule docs are TTL'd this many days
+// after the week ends (= weekStart + 7). Used by Schedule writes + Inbox
+// weekly-schedule approval.
+export const SCHEDULE_TTL_DAYS_AFTER_WEEK = 21;
+
+// expiresAt for weekly-schedule docs (per-client schedule + master thrift
+// schedule). The week itself ends 7 days after weekStart (Monday); the doc
+// lives for SCHEDULE_TTL_DAYS_AFTER_WEEK additional days for review.
+export function scheduleExpiresAt(weekStartStr) {
+  const d = new Date(weekStartStr + "T00:00:00");
+  d.setDate(d.getDate() + 7 + SCHEDULE_TTL_DAYS_AFTER_WEEK);
+  return Timestamp.fromDate(d);
+}
 
 export const DAY_LABELS = {
   monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday",
