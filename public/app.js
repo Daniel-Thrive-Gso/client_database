@@ -35,6 +35,8 @@ import {
   signinSection, appSection, clientAppSection,
   userBar, userEmail, signinBtn, signoutBtn, signinError,
 } from "./shared/dom-shell.js";
+import { AUDIT_ACTIONS, logAccess } from "./shared/audit-log-writer.js";
+import { resetAuditState } from "./features/audit-log.js";
 
 // LEADERSHIP_ROLES stays here for now — moves with the intake/client-detail
 // split in Phase 4. INTAKE_BENEFIT_TYPES / INTAKE_BENEFIT_LABELS similarly
@@ -108,40 +110,8 @@ let selfEvalClientPicker = null;
 let intakeReentryPicker = null;
 let reentryClientId = null; // null = new client; GSO-NNNNN = re-entry mode
 
-const AUDIT_ACTIONS = {
-  SIGN_IN: "signIn",
-  SIGN_OUT: "signOut",
-  CREATE: "create",
-  UPDATE: "update",
-  DELETE: "delete",
-  APPROVE: "approve",
-  REJECT: "reject",
-  VIEW: "view",
-  PRINT: "print",
-};
-
-// Writes an entry to the accessLog collection. Schema:
-//   userId, userEmail, action, entityType, entityId, timestamp, metadata
-// Fail-open: if the audit write fails (network blip, etc.) the user action
-// still succeeds. Real fail-closed auditing requires writing audit + action
-// atomically from a Cloud Function — interim approach until that exists.
-async function logAccess(action, entityType, entityId = null, metadata = null) {
-  const user = auth.currentUser;
-  if (!user) return;
-  try {
-    await addDoc(collection(db, "accessLog"), {
-      userId: user.uid,
-      userEmail: user.email,
-      action,
-      entityType,
-      entityId,
-      timestamp: serverTimestamp(),
-      metadata,
-    });
-  } catch (err) {
-    console.warn("audit log write failed:", err);
-  }
-}
+// AUDIT_ACTIONS + logAccess now live in shared/audit-log-writer.js
+// (imported at top of file).
 
 // Use redirect for sign-in. signInWithPopup hangs silently in modern browsers
 // (Chrome/Edge default to blocking third-party cookies, and the SDK promise
@@ -274,7 +244,7 @@ onAuthStateChanged(auth, async (user) => {
     if (typeof reportMode !== "undefined") reportMode = "weekly";
     if (typeof reportYear !== "undefined") reportYear = null;
     document.querySelector('.tab-btn[data-tab="audit"]')?.setAttribute("hidden", "");
-    if (typeof resetAuditState === "function") resetAuditState();
+    resetAuditState();
     if (idleSignOut) {
       idleSignOut = false;
       showSigninError("You were signed out due to inactivity. Please sign in again.");
@@ -827,126 +797,8 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
   });
 });
 
-// ----- Audit log (Admin-only "Audit log" tab — go_live_checklist.md A5) -----
-// Reads the most recent N accessLog entries (rules: admin-only read) once, then
-// filters client-side — no composite index needed (single-field orderBy on
-// `timestamp`). The tab button is unhidden for admin in onAuthStateChanged.
-
-let auditEntries = [];   // [{ id, data }]
-let auditLoaded = false;
-let auditLoading = false;
-
-const $audit = (id) => document.getElementById(id);
-
-function metaToStr(m) {
-  if (m == null) return "";
-  if (typeof m === "string") return m;
-  try {
-    return Object.entries(m)
-      .map(([k, v]) => `${k}=${v != null && typeof v === "object" ? JSON.stringify(v) : v}`)
-      .join(", ");
-  } catch { return ""; }
-}
-
-async function loadAuditLog() {
-  if (auditLoading) return;
-  const body = $audit("audit-body");
-  if (!isCurrentUserAdmin()) {
-    if (body) body.innerHTML = `<tr class="empty"><td colspan="6">Admin only.</td></tr>`;
-    return;
-  }
-  auditLoading = true;
-  if (body) body.innerHTML = `<tr class="empty"><td colspan="6">Loading…</td></tr>`;
-  try {
-    const n = parseInt($audit("audit-limit")?.value || "500", 10) || 500;
-    const snap = await getDocs(query(collection(db, "accessLog"), orderBy("timestamp", "desc"), limit(n)));
-    auditEntries = snap.docs.map((d) => ({ id: d.id, data: d.data() }));
-    auditLoaded = true;
-    populateAuditFilterOptions();
-    renderAuditLog();
-  } catch (err) {
-    if (body) body.innerHTML = `<tr class="empty"><td colspan="6">Could not load: ${escapeHtml(err.message)}</td></tr>`;
-  } finally {
-    auditLoading = false;
-  }
-}
-
-function populateAuditFilterOptions() {
-  const fill = (sel, values, label) => {
-    if (!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = [`<option value="">${label}</option>`]
-      .concat([...values].sort((a, b) => a.localeCompare(b))
-        .map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`))
-      .join("");
-    if (values.has(cur)) sel.value = cur;
-  };
-  fill($audit("audit-filter-action"), new Set(auditEntries.map((e) => e.data.action).filter(Boolean)), "All actions");
-  fill($audit("audit-filter-entity"), new Set(auditEntries.map((e) => e.data.entityType).filter(Boolean)), "All entity types");
-  fill($audit("audit-filter-user"), new Set(auditEntries.map((e) => e.data.userEmail).filter(Boolean)), "All users");
-}
-
-function renderAuditLog() {
-  const body = $audit("audit-body");
-  if (!body) return;
-  const q = ($audit("audit-search")?.value || "").trim().toLowerCase();
-  const fa = $audit("audit-filter-action")?.value || "";
-  const fe = $audit("audit-filter-entity")?.value || "";
-  const fu = $audit("audit-filter-user")?.value || "";
-  const rows = auditEntries.filter((e) => {
-    const d = e.data;
-    if (fa && d.action !== fa) return false;
-    if (fe && d.entityType !== fe) return false;
-    if (fu && d.userEmail !== fu) return false;
-    if (q) {
-      const hay = [d.userEmail, d.action, d.entityType, d.entityId, d.userId, metaToStr(d.metadata)]
-        .map((x) => String(x ?? "")).join(" ").toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  });
-  const cnt = $audit("audit-count");
-  if (cnt) cnt.textContent = `${rows.length} of ${auditEntries.length} loaded entries shown.`;
-  if (rows.length === 0) {
-    body.innerHTML = `<tr class="empty"><td colspan="6">No entries match.</td></tr>`;
-    return;
-  }
-  body.innerHTML = rows.map((e) => {
-    const d = e.data;
-    const ts = d.timestamp?.toDate ? d.timestamp.toDate() : null;
-    const when = ts ? ts.toLocaleString() : "(pending)";
-    return `<tr>
-      <td>${escapeHtml(when)}</td>
-      <td>${escapeHtml(d.userEmail || d.userId || "")}</td>
-      <td>${escapeHtml(d.action || "")}</td>
-      <td>${escapeHtml(d.entityType || "")}</td>
-      <td>${d.entityId ? `<code>${escapeHtml(d.entityId)}</code>` : ""}</td>
-      <td class="muted" style="word-break:break-word;">${escapeHtml(metaToStr(d.metadata))}</td>
-    </tr>`;
-  }).join("");
-}
-
-function resetAuditState() {
-  auditEntries = [];
-  auditLoaded = false;
-  auditLoading = false;
-  const body = $audit("audit-body");
-  if (body) body.innerHTML = `<tr class="empty"><td colspan="6">Open this tab to load.</td></tr>`;
-  const cnt = $audit("audit-count");
-  if (cnt) cnt.textContent = "";
-}
-
-(function wireAuditTab() {
-  const rerender = () => { if (auditLoaded) renderAuditLog(); };
-  $audit("audit-search")?.addEventListener("input", rerender);
-  ["audit-filter-action", "audit-filter-entity", "audit-filter-user"].forEach((id) =>
-    $audit(id)?.addEventListener("change", rerender));
-  $audit("audit-limit")?.addEventListener("change", () => { if (auditLoaded) loadAuditLog(); });
-  $audit("audit-refresh")?.addEventListener("click", () => loadAuditLog());
-  document.querySelector('.tab-btn[data-tab="audit"]')?.addEventListener("click", () => {
-    if (!auditLoaded) loadAuditLog();
-  });
-})();
+// Audit log tab moved to features/audit-log.js. Importing it at top of file
+// triggers its self-registration of event handlers.
 
 // ----- Intake Section 1 (Identity) -----
 //
