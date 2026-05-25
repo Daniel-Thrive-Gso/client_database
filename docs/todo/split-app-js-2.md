@@ -17,7 +17,7 @@ The new plan differs in **ordering and granularity**: 8 sub-phases, each one a 1
 
 | Module                            | Purpose                                                  |
 | --------------------------------- | -------------------------------------------------------- |
-| `shared/firebase.js`              | Firebase SDK init, tenant branding, callables            |
+| `shared/firebase.js`              | Firebase SDK init, ALLOWED_DOMAIN, callables             |
 | `shared/helpers.js`               | escapeHtml, capitalize, isOnProbation, levelDisplay, etc.|
 | `shared/auth-state.js`            | currentUserRole / currentUserClientId + setters          |
 | `shared/dom-shell.js`             | 8 app-shell DOM refs                                     |
@@ -173,8 +173,8 @@ The cross-cutting hub. Probably 2-3 commits since the file would be > 3k lines o
 
 By now most guards are gone. The auth router becomes mostly direct imports.
 
-- [ ] Create `public/features/auth.js` — `onAuthStateChanged`, the idle-timeout block, sign-in/out button handlers, Google redirect handler. Imports all the start/stop hooks directly. The remaining `if (typeof TENANT !== "undefined")` defensive check at line 11561 stays (it's load-order paranoia, not coupling).
-- [ ] Shrink `app.js` to a thin entry point: should be under 80 lines, mostly imports + applyTenantBranding() (which already ran inside shared/firebase.js, so this is really just the import statements).
+- [ ] Create `public/features/auth.js` — `onAuthStateChanged`, the idle-timeout block, sign-in/out button handlers, Google redirect handler. Imports all the start/stop hooks directly.
+- [ ] Shrink `app.js` to a thin entry point: should be under 80 lines, mostly imports.
 - [ ] Move `provisionClientPin` to a shared/clientauth-helpers.js or fold into intake — it's a one-liner around `clientAuthCreate`.
 
 **Final smoke-test gate:** the full plan-original checklist (sign in, exercise every tab, both auth paths, sign out cleanly, no console errors).
@@ -213,5 +213,5 @@ The same 12-step checklist from `docs/todo/split-app-js.md` § Verification. Rep
 ### Greppable end-state checks
 
 - `wc -l public/app.js` → under 80 lines.
-- `grep -c "typeof.*function" public/app.js public/features/**/*.js public/shared/**/*.js` → only the legit ones (createClientPicker's onChange callback check, the load-order TENANT defensive check) survive.
+- `grep -c "typeof.*function" public/app.js public/features/**/*.js public/shared/**/*.js` → only the legit ones (createClientPicker's onChange callback check, the Roster/Schedule/Reports init-once flags) survive.
 - `grep -rn "// TODO" public/shared public/features` → no orphaned in-flight markers from the split.

@@ -10,7 +10,7 @@ import {
   ref as storageRef, uploadBytes, getDownloadURL, deleteObject
 } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-storage.js";
 import {
-  app, auth, db, storage, functions, provider,
+  auth, db, storage, provider,
   clientAuthCreate, clientAuthSignIn, clientAuthReset,
   clientAuthDisable, clientAuthEnable,
   ALLOWED_DOMAIN,

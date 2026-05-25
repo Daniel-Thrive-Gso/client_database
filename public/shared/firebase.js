@@ -19,7 +19,7 @@ import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/
 // blocking that otherwise breaks the redirect → app session handoff.
 export const ALLOWED_DOMAIN = "thrivegso.com";
 
-export const app = initializeApp({
+const app = initializeApp({
   apiKey: "AIzaSyBQj50m9HeEBDZ1b2eklTQEhVD63hzDCBM",
   authDomain: "clients.thrivegso.com",
   projectId: "admin-automation-74110",
@@ -27,10 +27,10 @@ export const app = initializeApp({
   messagingSenderId: "721603594101",
   appId: "1:721603594101:web:bc4c79f1484f11540c753c",
 });
+const functions = getFunctions(app, "us-central1");
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
-export const functions = getFunctions(app, "us-central1");
 
 export const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ hd: ALLOWED_DOMAIN, prompt: "select_account" });

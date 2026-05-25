@@ -48,7 +48,7 @@ Focus: data + deploy. Files-oriented version lives at [code-map.md](code-map.md)
 │                       │                                                      │
 │                       ▼                                                      │
 │           ┌─────────────────────────┐                                        │
-│           │ Browser loads PWA shell │  (index.html + app.js + config.js)     │
+│           │ Browser loads PWA shell │  (index.html + app.js + shared/*.js)   │
 │           │ Service worker caches   │                                        │
 │           └───────────┬─────────────┘                                        │
 │                       │                                                      │
@@ -192,9 +192,9 @@ Focus: data + deploy. Files-oriented version lives at [code-map.md](code-map.md)
 │   The auth subcollection (clients/{cid}/auth/pin) is locked to NO ONE.       │
 │   Cloud Functions reach it via the Admin SDK, bypassing rules.               │
 │                                                                              │
-│   Because rules can't import config.js, the @thrivegso.com domain and        │
-│   admin email are hardcoded in firestore.rules AND storage.rules — they      │
-│   are the only two non-DRY copies of those values in the codebase.           │
+│   Rules files can't import, so the @thrivegso.com domain and admin email     │
+│   are hardcoded in firestore.rules + storage.rules — same as everywhere      │
+│   else in the codebase (no central config; see code-map.md §7).              │
 └──────────────────────────────────────────────────────────────────────────────┘
 
 

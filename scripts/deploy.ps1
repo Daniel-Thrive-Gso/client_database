@@ -1,4 +1,4 @@
-param([string[]]$DeployArgs = @('--only', 'hosting'))
+param([string]$Only = 'hosting')
 
 # Deploy the client_database app with a fresh cache-buster stamp.
 #
@@ -8,12 +8,13 @@ param([string[]]$DeployArgs = @('--only', 'hosting'))
 # cache on next visit, so users always get the latest JS / CSS / HTML in one
 # stroke. Retires the manual "bump app.js?v= before committing" ritual.
 #
-# Default target: --only hosting. Pass any other firebase-deploy flags and
-# they replace the default:
+# Default target: -Only hosting. Pass another --only value via -Only:
 #   .\scripts\deploy.ps1                                # hosting only (default)
-#   .\scripts\deploy.ps1 --only functions               # functions only
-#   .\scripts\deploy.ps1 --only hosting,functions       # both
-#   .\scripts\deploy.ps1 --only firestore:rules         # just rules
+#   .\scripts\deploy.ps1 -Only functions                # functions only
+#   .\scripts\deploy.ps1 -Only "hosting,functions"      # both (quote required —
+#                                                       # comma is array-literal
+#                                                       # syntax otherwise)
+#   .\scripts\deploy.ps1 -Only firestore:rules          # just rules
 #
 # Side effect: every run leaves public/sw.js and public/index.html with
 # uncommitted changes (the new stamp). Commit them when convenient:
@@ -49,27 +50,33 @@ $stamp = "$timestamp$shaSuffix"
 # only reliable UTF-8 round-trip on Windows PowerShell 5.1.
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
-# 1. Rewrite SW_VERSION in public/sw.js
+# 1. Rewrite SW_VERSION in public/sw.js. Verify the pattern matched first —
+# the earlier "did the file change?" check false-positived when two runs
+# within the same minute produced the same stamp.
 $swContent = [System.IO.File]::ReadAllText($swPath, $utf8NoBom)
-$newSw = $swContent -replace "const SW_VERSION = '[^']+';", "const SW_VERSION = 'gso-thrive-$stamp';"
-if ($newSw -eq $swContent) { throw "Did not match SW_VERSION pattern in $swPath" }
+$swPattern = "const SW_VERSION = '[^']+';"
+if ($swContent -notmatch $swPattern) { throw "Did not match SW_VERSION pattern in $swPath" }
+$newSw = $swContent -replace $swPattern, "const SW_VERSION = 'gso-thrive-$stamp';"
 [System.IO.File]::WriteAllText($swPath, $newSw, $utf8NoBom)
 Write-Output "sw.js       -> SW_VERSION = 'gso-thrive-$stamp'"
 
-# 2. Rewrite ?v= on the entry <script> tag in public/index.html
+# 2. Rewrite ?v= on the entry <script> tag in public/index.html. Same
+# verify-then-replace pattern as above.
 $indexContent = [System.IO.File]::ReadAllText($indexPath, $utf8NoBom)
-$pattern = '(<script type="module" src="app\.js\?v=)[^"]+(")'
-$newIndex = [regex]::Replace($indexContent, $pattern, "`${1}$stamp`${2}")
-if ($newIndex -eq $indexContent) { throw "Did not match entry <script> ?v= pattern in $indexPath" }
+$indexPattern = '(<script type="module" src="app\.js\?v=)[^"]+(")'
+if ($indexContent -notmatch $indexPattern) { throw "Did not match entry <script> ?v= pattern in $indexPath" }
+$newIndex = [regex]::Replace($indexContent, $indexPattern, "`${1}$stamp`${2}")
 [System.IO.File]::WriteAllText($indexPath, $newIndex, $utf8NoBom)
 Write-Output "index.html  -> app.js?v=$stamp"
 
 # 3. Deploy. firebase looks for firebase.json in the cwd, so cd into the project.
+# Pass --only as one '--only=value' arg so a comma-separated list like
+# 'hosting,functions' survives PowerShell's array-literal parsing intact.
 Push-Location $projectRoot
 try {
     Write-Output ""
-    Write-Output "firebase deploy $($DeployArgs -join ' ')"
-    & firebase deploy @DeployArgs
+    Write-Output "firebase deploy --only=$Only"
+    & firebase deploy "--only=$Only"
     if ($LASTEXITCODE -ne 0) { throw "firebase deploy failed (exit $LASTEXITCODE)" }
 } finally {
     Pop-Location
